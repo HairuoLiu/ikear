@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "IKEAR",
+    "slug": "ikear-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "ikear",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0058A3"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ikear.app",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "使用 Face ID 解锁 IKEAR 以保护你的账户安全",
+        "NSCameraUsageDescription": "用于拍摄并上传你要出售的家具照片",
+        "NSPhotoLibraryUsageDescription": "用于从相册选择你要出售的家具照片"
+      }
+    },
+    "android": {
+      "package": "com.ikear.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#0058A3"
+      }
+    },
+    "plugins": [
+      "expo-local-authentication",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "用于选择你要出售的家具照片"
+        }
+      ]
+    ]
+  }
+}

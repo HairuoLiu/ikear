@@ -1,0 +1,35 @@
+# OS / editor
+.DS_Store
+*.log
+.idea/
+.vscode/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Expo / Metro
+.expo/
+dist/
+web-build/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Native build artifacts
+ios/
+android/
+
+# Env (holds Supabase anon key — NEVER commit)
+.env
+.env.local
+.env.*.local
+
+# Test / coverage artifacts
+coverage/
+
+# Supabase local (backend repo only, kept out of frontend)
+.supabase/

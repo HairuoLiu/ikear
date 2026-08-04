@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>IKEAR · 二手家具集市</title>
+<style>
+  :root{
+    --blue:#007AFF;
+    --ikea-blue:#0058A3;
+    --bg:#F2F2F7;
+    --card:#FFFFFF;
+    --sep:rgba(60,60,67,0.29);
+    --sec:#8E8E93;
+    --label:#1C1C1E;
+    --green:#34C759;
+    --orange:#FF9500;
+    --red:#FF3B30;
+    --yellow:#FFCC00;
+    --radius:14px;
+    --sb-h:50px; /* status bar height */
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; padding:0; height:100%; }
+  body{
+    font-family:-apple-system,"SF Pro Display","SF Pro Text",BlinkMacSystemFont,"Helvetica Neue",sans-serif;
+    background:radial-gradient(circle at 30% 20%,#3a3a44,#1c1c22 70%);
+    color:var(--label);
+    display:flex; align-items:center; justify-content:center;
+    min-height:100vh; padding:24px;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------- iPhone frame ---------- */
+  .phone{
+    width:390px; height:844px; background:#000; border-radius:55px;
+    padding:12px; position:relative; flex:none;
+    box-shadow:0 0 0 2px #1c1c1e, 0 30px 70px rgba(0,0,0,.55);
+  }
+  .device{
+    position:relative; width:100%; height:100%;
+    border-radius:44px; overflow:hidden; background:var(--bg);
+  }
+  .dynamic-island{
+    position:absolute; top:10px; left:50%; transform:translateX(-50%);
+    width:124px; height:34px; background:#000; border-radius:20px; z-index:1200;
+  }
+  .dynamic-island::after{
+    content:""; position:absolute; right:18px; top:50%; transform:translateY(-50%);
+    width:9px; height:9px; border-radius:50%;
+    background:radial-gradient(circle at 35% 35%,#2b3a55,#050608);
+  }
+  .statusbar{
+    position:absolute; top:0; left:0; right:0; height:var(--sb-h);
+    display:flex; align-items:flex-end; justify-content:space-between;
+    padding:0 30px 8px; z-index:1100; pointer-events:none;
+    font-size:15px; font-weight:600; color:var(--label);
+  }
+  .statusbar.dark{ color:#fff; }
+  .statusbar .sb-right{ display:flex; align-items:center; gap:6px; }
+
+  /* ---------- Screens ---------- */
+  .screen{
+    position:absolute; inset:0; background:var(--bg);
+    display:flex; flex-direction:column;
+    opacity:0; visibility:hidden; transform:translateX(100%);
+    transition:none; z-index:1;
+  }
+  body.ready .screen{ transition:transform .34s cubic-bezier(.32,.72,0,1), opacity .22s ease; }
+  .screen.active{ opacity:1; visibility:visible; transform:translateX(0); z-index:2; }
+  .screen.active-left{ transform:translateX(-22%); z-index:1; }
+  .tab-screen{ transform:translateX(0); }
+  .tab-screen:not(.active){ opacity:0; visibility:hidden; z-index:1; }
+  .overlay-screen{ z-index:5; }
+
+  /* ---------- Nav bar ---------- */
+  .navbar{
+    flex:none; padding-top:var(--sb-h); position:relative;
+    background:rgba(242,242,247,.82); backdrop-filter:saturate(180%) blur(20px);
+    -webkit-backdrop-filter:saturate(180%) blur(20px);
+    border-bottom:.5px solid var(--sep); z-index:3;
+  }
+  .nb-inner{ padding:6px 16px 10px; }
+  .nb-large{ font-size:34px; font-weight:700; letter-spacing:.3px; line-height:1.12; transition:font-size .2s ease; }
+  .navbar.scrolled .nb-large{ font-size:18px; font-weight:600; }
+  .nb-modal{ display:flex; align-items:center; height:44px; position:relative; }
+  .nb-title{ font-size:17px; font-weight:600; position:absolute; left:50%; transform:translateX(-50%); }
+  .nb-back{
+    display:flex; align-items:center; gap:2px; color:var(--blue);
+    font-size:17px; font-weight:400; background:none; border:none; padding:6px 4px; cursor:pointer;
+  }
+  .nb-back svg{ width:24px; height:24px; }
+  .nb-right{ margin-left:auto; display:flex; align-items:center; gap:14px; color:var(--blue); }
+  .nb-right svg{ width:22px; height:22px; }
+
+  /* ---------- Scroll area ---------- */
+  .scroll-area{ flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  .scroll-area::-webkit-scrollbar{ width:0; }
+
+  /* ---------- Search bar ---------- */
+  .searchbar{
+    margin:8px 16px 4px; background:#e3e3e8; border-radius:10px;
+    display:flex; align-items:center; gap:7px; padding:9px 10px; color:var(--sec);
+  }
+  .searchbar svg{ width:17px; height:17px; flex:none; }
+  .searchbar input{ border:none; background:none; outline:none; flex:1; font-size:17px; color:var(--label); }
+  .searchbar input::placeholder{ color:var(--sec); }
+
+  /* ---------- Chips ---------- */
+  .chips{ display:flex; gap:8px; padding:10px 16px; overflow-x:auto; }
+  .chips::-webkit-scrollbar{ height:0; }
+  .chip{
+    flex:none; padding:7px 15px; border-radius:18px; background:#e9e9eb;
+    font-size:14px; font-weight:500; color:var(--label); cursor:pointer;
+  }
+  .chip.active{ background:var(--blue); color:#fff; }
+
+  /* ---------- Listing cards ---------- */
+  .feed{ padding:6px 16px 24px; }
+  .card{
+    background:var(--card); border-radius:var(--radius); margin-bottom:14px;
+    overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.06);
+  }
+  .tap{ cursor:pointer; transition:background .12s, transform .08s; }
+  .tap:active{ background:rgba(0,0,0,.05); }
+  .card:active{ transform:scale(.985); }
+  .card-thumb{
+    height:170px; display:flex; align-items:center; justify-content:center; font-size:74px;
+    position:relative;
+  }
+  .cond-badge{
+    position:absolute; top:10px; left:10px; padding:4px 9px; border-radius:8px;
+    font-size:12px; font-weight:600; color:#fff; backdrop-filter:blur(4px);
+  }
+  .card-body{ padding:11px 13px 13px; }
+  .card-title{ font-size:16px; font-weight:600; margin:0 0 6px; }
+  .card-meta{ display:flex; align-items:center; justify-content:space-between; }
+  .card-price{ font-size:19px; font-weight:700; color:var(--blue); }
+  .card-city{ font-size:13px; color:var(--sec); }
+
+  /* ---------- Grouped list (Settings style) ---------- */
+  .group{ margin:18px 16px; }
+  .group-header{ font-size:13px; font-weight:600; color:var(--sec); text-transform:uppercase; letter-spacing:.4px; margin:0 8px 7px; }
+  .list{ background:var(--card); border-radius:12px; overflow:hidden; }
+  .row{
+    display:flex; align-items:center; padding:12px 14px; position:relative;
+    background:var(--card);
+  }
+  .row + .row::before{ content:""; position:absolute; top:0; left:14px; right:0; height:.5px; background:var(--sep); }
+  .row .ic{ width:28px; height:28px; border-radius:7px; display:flex; align-items:center; justify-content:center; margin-right:11px; flex:none; }
+  .ic svg{ width:18px; height:18px; color:#fff; }
+  .row .label{ font-size:16px; flex:1; }
+  .row .val{ font-size:15px; color:var(--sec); margin-right:6px; }
+  .row .chev{ width:16px; height:16px; color:var(--sec); opacity:.6; }
+  .row:active{ background:#ececef; }
+
+  /* ---------- Segmented control ---------- */
+  .segmented{ position:relative; display:flex; background:#e9e9eb; border-radius:9px; padding:2px; }
+  .seg-thumb{
+    position:absolute; top:2px; left:2px; height:calc(100% - 4px);
+    background:#fff; border-radius:7px; box-shadow:0 1px 3px rgba(0,0,0,.15);
+    transition:transform .26s cubic-bezier(.32,.72,0,1);
+  }
+  .seg-btn{ flex:1; z-index:1; background:none; border:none; padding:7px 0; font-size:14px; font-weight:600; color:var(--label); cursor:pointer; }
+
+  /* ---------- Auth ---------- */
+  .auth-wrap{ padding:10px 26px; }
+  .auth-logo{ text-align:center; margin:24px 0 18px; }
+  .auth-logo .mark{ font-size:46px; font-weight:800; color:var(--ikea-blue); letter-spacing:1px; }
+  .auth-logo .tag{ font-size:14px; color:var(--sec); margin-top:6px; }
+  .field{ background:var(--card); border-radius:11px; margin-bottom:11px; }
+  .field input{
+    width:100%; border:none; outline:none; padding:14px 15px; font-size:16px;
+    background:none; color:var(--label);
+  }
+  .field input + input{ border-top:.5px solid var(--sep); }
+  .btn-primary{
+    width:100%; background:var(--blue); color:#fff; border:none; border-radius:12px;
+    padding:15px; font-size:17px; font-weight:600; margin-top:6px; cursor:pointer;
+  }
+  .btn-primary:active{ background:#0066d6; }
+  .btn-apple{
+    width:100%; background:#000; color:#fff; border:none; border-radius:12px;
+    padding:15px; font-size:17px; font-weight:600; margin-top:12px;
+    display:flex; align-items:center; justify-content:center; gap:9px; cursor:pointer;
+  }
+  .btn-apple svg{ width:19px; height:19px; }
+  .auth-foot{ text-align:center; color:var(--sec); font-size:13px; margin-top:18px; }
+
+  /* ---------- Listing detail ---------- */
+  .carousel{ position:relative; height:300px; overflow:hidden; background:#dfdfe4; }
+  .carousel-track{ display:flex; height:100%; transition:transform .3s ease; }
+  .slide{ min-width:100%; display:flex; align-items:center; justify-content:center; font-size:120px; }
+  .dots{ position:absolute; bottom:12px; left:50%; transform:translateX(-50%); display:flex; gap:6px; }
+  .dot{ width:7px; height:7px; border-radius:50%; background:rgba(255,255,255,.55); }
+  .dot.active{ background:#fff; width:18px; border-radius:4px; }
+  .detail-body{ padding:16px; }
+  .detail-price{ font-size:28px; font-weight:700; color:var(--blue); margin:4px 0 8px; }
+  .detail-title{ font-size:21px; font-weight:700; margin:0 0 8px; }
+  .detail-sub{ display:flex; gap:10px; align-items:center; color:var(--sec); font-size:14px; margin-bottom:14px; }
+  .pill{ padding:3px 10px; border-radius:20px; font-size:13px; font-weight:600; color:#fff; }
+  .seller{
+    display:flex; align-items:center; gap:11px; background:var(--card);
+    border-radius:12px; padding:12px 14px; margin:14px 0;
+  }
+  .avatar{ width:44px; height:44px; border-radius:50%; background:linear-gradient(135deg,#7bb0ff,#007AFF); display:flex; align-items:center; justify-content:center; color:#fff; font-size:18px; font-weight:700; flex:none; }
+  .seller .name{ font-size:16px; font-weight:600; }
+  .seller .sub{ font-size:13px; color:var(--sec); }
+  .seller .chev{ margin-left:auto; width:18px; height:18px; color:var(--sec); }
+  .desc-title{ font-size:13px; font-weight:600; color:var(--sec); text-transform:uppercase; margin:16px 0 8px; }
+  .desc-text{ font-size:15px; line-height:1.55; color:#333; }
+  .bottom-bar{
+    flex:none; display:flex; gap:12px; padding:12px 16px;
+    padding-bottom:calc(12px + env(safe-area-inset-bottom)); background:rgba(255,255,255,.9);
+    backdrop-filter:blur(20px); border-top:.5px solid var(--sep);
+  }
+  .bb-fav{
+    width:54px; border:1px solid var(--sep); border-radius:12px; background:#fff;
+    display:flex; align-items:center; justify-content:center; color:var(--label); cursor:pointer;
+  }
+  .bb-fav svg{ width:24px; height:24px; }
+  .bb-fav.on{ color:var(--red); }
+  .bb-fav.on svg{ fill:var(--red); }
+  .bb-contact{ flex:1; background:var(--blue); color:#fff; border:none; border-radius:12px; font-size:16px; font-weight:600; cursor:pointer; }
+  .bb-contact:active{ background:#0066d6; }
+
+  /* ---------- Explore grid ---------- */
+  .exp-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; padding:10px 16px 24px; }
+  .exp-tile{ background:var(--card); border-radius:14px; aspect-ratio:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; box-shadow:0 1px 3px rgba(0,0,0,.05); }
+  .exp-tile .em{ font-size:38px; }
+  .exp-tile .nm{ font-size:13px; font-weight:500; }
+  .exp-tile:active{ transform:scale(.96); }
+
+  /* ---------- Sell form ---------- */
+  .sell-body{ padding:14px 16px 30px; }
+  .photo-row{ display:flex; gap:10px; margin-bottom:16px; }
+  .photo-box{
+    width:84px; height:84px; border:2px dashed #c4c4cc; border-radius:12px;
+    display:flex; align-items:center; justify-content:center; color:var(--sec); background:#fafafa; flex:none;
+  }
+  .photo-box svg{ width:30px; height:30px; }
+  .form-card{ background:var(--card); border-radius:12px; padding:4px 14px; margin-bottom:14px; }
+  .form-row{ padding:13px 0; position:relative; display:flex; align-items:center; }
+  .form-row + .form-row::before{ content:""; position:absolute; top:0; left:0; right:0; height:.5px; background:var(--sep); }
+  .form-row label{ font-size:15px; color:var(--sec); width:70px; flex:none; }
+  .form-row input, .form-row textarea{
+    flex:1; border:none; outline:none; font-size:16px; background:none; color:var(--label); resize:none; font-family:inherit;
+  }
+  .form-row .prefix{ color:var(--label); font-weight:600; margin-right:2px; }
+  .picker-field{ flex:1; text-align:right; color:var(--label); font-size:16px; display:flex; align-items:center; justify-content:flex-end; gap:5px; cursor:pointer; }
+  .picker-field .ph{ color:var(--sec); }
+  .picker-field .chev{ width:16px; height:16px; color:var(--sec); }
+
+  /* ---------- Bottom sheet ---------- */
+  .sheet-backdrop{ position:absolute; inset:0; background:rgba(0,0,0,.4); opacity:0; visibility:hidden; transition:.3s; z-index:600; }
+  .sheet-backdrop.open{ opacity:1; visibility:visible; }
+  .sheet{
+    position:absolute; left:0; right:0; bottom:0; background:#f7f7f9;
+    border-radius:18px 18px 0 0; padding:8px 0 calc(20px + env(safe-area-inset-bottom));
+    transform:translateY(100%); transition:transform .34s cubic-bezier(.32,.72,0,1); z-index:601;
+  }
+  .sheet.open{ transform:translateY(0); }
+  .sheet-grip{ width:38px; height:5px; background:#d1d1d6; border-radius:3px; margin:8px auto 12px; }
+  .sheet-title{ text-align:center; font-size:15px; font-weight:600; margin-bottom:6px; }
+  .sheet-opt{ padding:15px 20px; font-size:17px; text-align:center; cursor:pointer; }
+  .sheet-opt:active{ background:#ececef; }
+  .sheet-opt.sel{ color:var(--blue); font-weight:600; }
+  .sheet-cancel{ margin-top:8px; border-top:7px solid #ececf0; padding:15px 20px; text-align:center; font-size:17px; font-weight:600; color:var(--blue); cursor:pointer; }
+
+  /* ---------- Messages ---------- */
+  .conv{ display:flex; align-items:center; gap:12px; padding:12px 16px; background:var(--card); position:relative; }
+  .conv + .conv::before{ content:""; position:absolute; top:0; left:72px; right:0; height:.5px; background:var(--sep); }
+  .conv:active{ background:#ececef; }
+  .conv .avatar{ width:50px; height:50px; font-size:20px; }
+  .conv .info{ flex:1; min-width:0; }
+  .conv .r1{ display:flex; justify-content:space-between; }
+  .conv .nm{ font-size:16px; font-weight:600; }
+  .conv .tm{ font-size:13px; color:var(--sec); }
+  .conv .prev{ font-size:14px; color:var(--sec); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px; }
+  .unread{ min-width:19px; height:19px; border-radius:10px; background:var(--red); color:#fff; font-size:12px; font-weight:600; display:flex; align-items:center; justify-content:center; padding:0 5px; }
+
+  /* ---------- Chat ---------- */
+  .chat-area{ flex:1; overflow-y:auto; padding:14px 14px 8px; display:flex; flex-direction:column; gap:10px; background:#f2f2f7; }
+  .bubble{ max-width:74%; padding:10px 13px; font-size:15px; line-height:1.4; border-radius:18px; }
+  .in{ background:#e9e9eb; color:var(--label); align-self:flex-start; border-bottom-left-radius:5px; }
+  .out{ background:var(--blue); color:#fff; align-self:flex-end; border-bottom-right-radius:5px; }
+  .chat-input{ flex:none; display:flex; gap:9px; padding:10px 12px; padding-bottom:calc(10px + env(safe-area-inset-bottom)); background:rgba(255,255,255,.92); backdrop-filter:blur(20px); border-top:.5px solid var(--sep); align-items:center; }
+  .chat-input input{ flex:1; border:1px solid var(--sep); border-radius:18px; padding:9px 14px; font-size:16px; outline:none; background:#fff; }
+  .chat-send{ background:var(--blue); color:#fff; border:none; border-radius:18px; padding:9px 16px; font-size:15px; font-weight:600; cursor:pointer; }
+  .chat-send:active{ background:#0066d6; }
+
+  /* ---------- Profile ---------- */
+  .profile-head{ padding:20px 16px 16px; display:flex; align-items:center; gap:16px; background:var(--card); }
+  .profile-head .avatar{ width:74px; height:74px; font-size:30px; }
+  .profile-head .nm{ font-size:24px; font-weight:700; }
+  .profile-head .sb{ font-size:14px; color:var(--sec); margin-top:4px; }
+  .stats{ display:flex; background:var(--card); margin:0 16px; border-radius:12px; overflow:hidden; }
+  .stat{ flex:1; text-align:center; padding:14px 0; }
+  .stat + .stat{ border-left:.5px solid var(--sep); }
+  .stat .num{ font-size:18px; font-weight:700; }
+  .stat .lab{ font-size:12px; color:var(--sec); margin-top:2px; }
+
+  /* ---------- Tab bar ---------- */
+  .tabbar{
+    position:absolute; left:0; right:0; bottom:0; z-index:800;
+    display:flex; padding:8px 0 calc(8px + env(safe-area-inset-bottom));
+    background:rgba(248,248,250,.82); backdrop-filter:saturate(180%) blur(20px);
+    -webkit-backdrop-filter:saturate(180%) blur(20px);
+    border-top:.5px solid var(--sep);
+    transition:transform .3s ease, opacity .25s ease;
+  }
+  .tabbar.hidden{ transform:translateY(100%); opacity:0; }
+  .tab{ flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer; color:var(--sec); }
+  .tab svg{ width:25px; height:25px; }
+  .tab .tl{ font-size:10px; font-weight:500; }
+  .tab.active{ color:var(--blue); }
+
+  /* ---------- Splash ---------- */
+  .splash{ background:linear-gradient(160deg,#0058A3,#003a6e); }
+  .splash-inner{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#fff; }
+  .splash .mark{ font-size:64px; font-weight:800; letter-spacing:2px; text-shadow:0 2px 10px rgba(0,0,0,.25); }
+  .splash .tag{ font-size:17px; opacity:.9; margin-top:10px; letter-spacing:3px; }
+  .splash .ring{ margin-top:40px; width:34px; height:34px; border:3px solid rgba(255,255,255,.35); border-top-color:#fff; border-radius:50%; animation:spin 1s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  /* ---------- Face ID modal ---------- */
+  .modal-back{ position:absolute; inset:0; background:rgba(0,0,0,.45); opacity:0; visibility:hidden; transition:.3s; z-index:900; display:flex; align-items:center; justify-content:center; }
+  .modal-back.open{ opacity:1; visibility:visible; }
+  .modal{ width:280px; background:#fff; border-radius:18px; padding:26px 22px; text-align:center; transform:scale(.9); transition:transform .3s; }
+  .modal-back.open .modal{ transform:scale(1); }
+  .faceid{ width:64px; height:64px; margin:0 auto 16px; color:var(--blue); }
+  .faceid svg{ width:64px; height:64px; }
+  .modal .mt{ font-size:18px; font-weight:700; }
+  .modal .ms{ font-size:14px; color:var(--sec); margin-top:6px; }
+  .modal .mbtn{ margin-top:18px; background:var(--blue); color:#fff; border:none; border-radius:12px; padding:12px; width:100%; font-size:16px; font-weight:600; cursor:pointer; }
+  .faceid.scan svg{ animation:pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse{ 0%,100%{ opacity:1; } 50%{ opacity:.45; } }
+
+  .toast{ position:absolute; bottom:120px; left:50%; transform:translateX(-50%) translateY(20px); background:rgba(0,0,0,.82); color:#fff; padding:11px 18px; border-radius:12px; font-size:14px; opacity:0; transition:.3s; z-index:1300; pointer-events:none; }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="device" id="device">
+    <div class="dynamic-island"></div>
+
+    <!-- ============ STATUS BAR ============ -->
+    <div class="statusbar" id="statusbar">
+      <div class="sb-time">9:41</div>
+      <div class="sb-right">
+        <svg width="17" height="12" viewBox="0 0 24 24" fill="#1c1c1e"><rect x="2" y="13" width="3" height="7" rx="1"/><rect x="8" y="9" width="3" height="11" rx="1"/><rect x="14" y="5" width="3" height="15" rx="1"/><rect x="20" y="2" width="3" height="18" rx="1"/></svg>
+        <svg width="17" height="13" viewBox="0 0 24 24" fill="none" stroke="#1c1c1e" stroke-width="2.2" stroke-linecap="round"><path d="M2 8.5a16 16 0 0 1 20 0"/><path d="M5 12.2a11 11 0 0 1 14 0"/><path d="M8.5 15.9a6 6 0 0 1 7 0"/><line x1="12" y1="19.5" x2="12.01" y2="19.5"/></svg>
+        <svg width="26" height="13" viewBox="0 0 26 13"><rect x="1" y="1" width="21" height="11" rx="3" fill="none" stroke="#1c1c1e" stroke-width="1.2"/><rect x="3" y="3" width="14" height="7" rx="1.5" fill="#1c1c1e"/><rect x="23" y="4" width="2" height="5" rx="1" fill="#1c1c1e"/></svg>
+      </div>
+    </div>
+
+    <!-- ============ TAB 1: HOME ============ -->
+    <div class="screen tab-screen" id="screen-home">
+      <div class="navbar" data-nav><div class="nb-inner"><div class="nb-large">发现</div></div></div>
+      <div class="scroll-area" data-scroll>
+        <div class="searchbar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input placeholder="搜索沙发、床、收纳…" />
+        </div>
+        <div class="chips" id="chips"></div>
+        <div class="feed" id="feed"></div>
+      </div>
+    </div>
+
+    <!-- ============ TAB 2: EXPLORE ============ -->
+    <div class="screen tab-screen" id="screen-explore">
+      <div class="navbar" data-nav><div class="nb-inner"><div class="nb-large">分类</div></div></div>
+      <div class="scroll-area" data-scroll>
+        <div class="exp-grid" id="expGrid"></div>
+      </div>
+    </div>
+
+    <!-- ============ TAB 3: SELL ============ -->
+    <div class="screen tab-screen" id="screen-sell">
+      <div class="navbar" data-nav><div class="nb-inner"><div class="nb-large">发布</div></div></div>
+      <div class="scroll-area" data-scroll>
+        <div class="sell-body">
+          <div class="photo-row">
+            <div class="photo-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+            <div class="photo-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+            <div class="photo-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+          </div>
+          <div class="form-card">
+            <div class="form-row"><label>标题</label><input id="sellTitle" placeholder="例如：宜家 MALM 床架" /></div>
+            <div class="form-row"><label>价格</label><span class="prefix">¥</span><input id="sellPrice" type="number" placeholder="0" style="flex:1" /></div>
+            <div class="form-row" id="catRow"><label>分类</label>
+              <div class="picker-field" id="catPicker"><span class="ph">请选择分类</span>
+                <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+              </div>
+            </div>
+            <div class="form-row"><label>成色</label><div id="condSeg" style="flex:1"></div></div>
+          </div>
+          <div class="form-card">
+            <div class="form-row" style="display:block"><label style="display:block;margin-bottom:6px">描述</label>
+              <textarea id="sellDesc" rows="4" placeholder="描述商品的新旧程度、尺寸、自提或邮寄方式…"></textarea>
+            </div>
+          </div>
+          <button class="btn-primary" id="publishBtn">发布</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ TAB 4: MESSAGES ============ -->
+    <div class="screen tab-screen" id="screen-messages">
+      <div class="navbar" data-nav><div class="nb-inner"><div class="nb-large">消息</div></div></div>
+      <div class="scroll-area" data-scroll>
+        <div id="convList"></div>
+      </div>
+    </div>
+
+    <!-- ============ TAB 5: PROFILE ============ -->
+    <div class="screen tab-screen" id="screen-profile">
+      <div class="navbar" data-nav><div class="nb-inner"><div class="nb-large">我的</div></div></div>
+      <div class="scroll-area" data-scroll>
+        <div class="profile-head">
+          <div class="avatar">湛</div>
+          <div><div class="nm">湛琉</div><div class="sb">多伦多 · 12 件发布</div></div>
+        </div>
+        <div class="stats">
+          <div class="stat"><div class="num">12</div><div class="lab">发布</div></div>
+          <div class="stat"><div class="num">8</div><div class="lab">收藏</div></div>
+          <div class="stat"><div class="num">5</div><div class="lab">售出</div></div>
+        </div>
+        <div class="group">
+          <div class="group-header">我的</div>
+          <div class="list">
+            <div class="row tap" data-go="myPosts"><div class="ic" style="background:var(--blue)"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div><div class="label">我的发布</div><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+            <div class="row tap" data-go="myFav"><div class="ic" style="background:var(--red)"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z"/></svg></div><div class="label">我的收藏</div><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+          </div>
+        </div>
+        <div class="group">
+          <div class="group-header">安全</div>
+          <div class="list">
+            <div class="row tap" id="faceRow">
+              <div class="ic" style="background:var(--green)"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 0-4 4v2H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2h-2V6a4 4 0 0 0-4-4z"/><circle cx="12" cy="13" r="1.6" fill="#fff"/></svg></div>
+              <div class="label">生物识别锁</div>
+              <div class="switch" id="faceSwitch"><div class="switch-knob"></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="group">
+          <div class="group-header">通用</div>
+          <div class="list">
+            <div class="row tap" data-go="settings"><div class="ic" style="background:var(--sec)"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-2.82 1.17V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 8 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 3.6 15H3.5a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9.4a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6V3.5a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 2.82 1.17l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 20.4 9H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div><div class="label">设置</div><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+            <div class="row tap" data-go="about"><div class="ic" style="background:var(--ikea-blue)"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></div><div class="label">关于</div><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ OVERLAY: AUTH ============ -->
+    <div class="screen overlay-screen" id="screen-auth">
+      <div class="navbar" data-nav><div class="nb-inner"><div class="nb-large" id="authTitle">登录</div></div></div>
+      <div class="scroll-area" data-scroll>
+        <div class="auth-wrap">
+          <div class="auth-logo">
+            <div class="mark">IKEAR</div>
+            <div class="tag">二手家具集市</div>
+          </div>
+          <div id="authSegWrap" style="margin-bottom:18px"></div>
+          <div class="field" id="nickField" style="display:none"><input placeholder="昵称" /></div>
+          <div class="field"><input id="authEmail" placeholder="邮箱" /><input id="authPwd" type="password" placeholder="密码" /></div>
+          <button class="btn-primary" id="authContinue">继续</button>
+          <button class="btn-apple" id="appleLogin">
+            <svg viewBox="0 0 24 24" fill="#fff"><path d="M17.05 12.04c-.03-2.6 2.12-3.85 2.22-3.91-1.21-1.77-3.09-2.01-3.76-2.04-1.6-.16-3.12.94-3.93.94-.81 0-2.06-.92-3.39-.89-1.74.03-3.35 1.01-4.25 2.57-1.81 3.14-.46 7.78 1.3 10.32.86 1.25 1.88 2.65 3.22 2.6 1.29-.05 1.78-.83 3.34-.83 1.56 0 2 .83 3.37.81 1.39-.03 2.27-1.27 3.12-2.53.98-1.45 1.39-2.85 1.41-2.92-.03-.01-2.71-1.04-2.74-4.13zM14.6 4.59c.72-.87 1.2-2.08 1.07-3.29-1.03.04-2.28.69-3.02 1.56-.66.77-1.24 2-1.08 3.18 1.15.09 2.32-.58 3.03-1.45z"/></svg>
+            使用 Apple 登录
+          </button>
+          <div class="auth-foot">登录即代表同意《用户协议》和《隐私政策》</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ OVERLAY: SPLASH ============ -->
+    <div class="screen overlay-screen splash" id="screen-splash">
+      <div class="splash-inner">
+        <div class="mark">IKEAR</div>
+        <div class="tag">二手家具集市</div>
+        <div class="ring"></div>
+      </div>
+    </div>
+
+    <!-- ============ OVERLAY: LISTING DETAIL ============ -->
+    <div class="screen overlay-screen" id="screen-detail">
+      <div class="navbar" data-nav>
+        <div class="nb-modal">
+          <button class="nb-back" data-back><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>商品</button>
+          <div class="nb-title">商品详情</div>
+        </div>
+      </div>
+      <div class="scroll-area" data-scroll>
+        <div class="carousel" id="carousel">
+          <div class="carousel-track" id="carouselTrack"></div>
+          <div class="dots" id="carouselDots"></div>
+        </div>
+        <div class="detail-body">
+          <div class="detail-title" id="dTitle"></div>
+          <div class="detail-price" id="dPrice"></div>
+          <div class="detail-sub">
+            <span class="pill" id="dCond"></span>
+            <span id="dCity"></span>
+          </div>
+          <div class="seller tap" id="dSeller">
+            <div class="avatar" id="dAvatar"></div>
+            <div><div class="name" id="dSellerName"></div><div class="sub">查看主页 ›</div></div>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" style="margin-left:auto"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+          <div class="desc-title">商品描述</div>
+          <div class="desc-text" id="dDesc"></div>
+        </div>
+      </div>
+      <div class="bottom-bar">
+        <button class="bb-fav" id="favBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z"/></svg></button>
+        <button class="bb-contact" id="contactBtn">联系卖家</button>
+      </div>
+    </div>
+
+    <!-- ============ OVERLAY: CHAT ============ -->
+    <div class="screen overlay-screen" id="screen-chat">
+      <div class="navbar" data-nav>
+        <div class="nb-modal">
+          <button class="nb-back" data-back><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+          <div class="nb-title" id="chatName">卖家</div>
+          <div class="nb-right"></div>
+        </div>
+      </div>
+      <div class="chat-area" id="chatArea"></div>
+      <div class="chat-input">
+        <input id="chatInput" placeholder="输入消息…" />
+        <button class="chat-send" id="chatSend">发送</button>
+      </div>
+    </div>
+
+    <!-- ============ BOTTOM SHEET ============ -->
+    <div class="sheet-backdrop" id="sheetBack"></div>
+    <div class="sheet" id="sheet">
+      <div class="sheet-grip"></div>
+      <div class="sheet-title" id="sheetTitle">选择分类</div>
+      <div id="sheetOpts"></div>
+      <div class="sheet-cancel" id="sheetCancel">取消</div>
+    </div>
+
+    <!-- ============ FACE ID MODAL ============ -->
+    <div class="modal-back" id="faceModal">
+      <div class="modal">
+        <div class="faceid" id="faceIcon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="9" cy="10" r="1"/><circle cx="15" cy="10" r="1"/><path d="M9 15c1.5 1 4.5 1 6 0"/></svg></div>
+        <div class="mt">Face ID</div>
+        <div class="ms" id="faceMsg">验证以启用生物识别锁</div>
+        <button class="mbtn" id="faceOk">验证</button>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <!-- ============ TAB BAR ============ -->
+    <div class="tabbar hidden" id="tabbar">
+      <div class="tab active" data-tab="home">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>
+        <div class="tl">发现</div>
+      </div>
+      <div class="tab" data-tab="explore">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+        <div class="tl">分类</div>
+      </div>
+      <div class="tab" data-tab="sell">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <div class="tl">发布</div>
+      </div>
+      <div class="tab" data-tab="messages">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <div class="tl">消息</div>
+      </div>
+      <div class="tab" data-tab="profile">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg>
+        <div class="tl">我的</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- Data ---------- */
+  var listings = [
+    {id:1,title:"宜家 MALM 双人床架",price:260,cond:"良好",city:"多伦多",emoji:"🛏️",cat:"床",seller:"小琳",desc:"Malm 系列实木床架，米色漆面，使用一年，无破损无晃动。含说明书与配套螺丝，自提优先，可小刀。"},
+    {id:2,title:"HEMNES 书架 白色",price:180,cond:"全新",city:"万锦",emoji:"📚",cat:"书架",seller:"Marcus",desc:"HEMNES 开放式书架，白色，未拆封全新。搬家时多买了一件，原价 ¥599，低价出，可邮寄。"},
+    {id:3,title:"POÄNG 扶手椅 原木色",price:120,cond:"良好",city:"密西沙加",emoji:"🪑",cat:"椅子",seller:"阿杰",desc:"Poäng 扶手椅，实木框架＋棉麻坐垫，坐感舒适，轻微使用痕迹，结构稳固，无宠物家庭。"},
+    {id:4,title:"BILLY 书柜 橡木纹",price:150,cond:"一般",city:"多伦多",emoji:"🗄️",cat:"书架",seller:"小琳",desc:"Billy 书柜，橡木贴面，高 202cm，侧面有小块磕碰，不影响使用，可议价，自提。"},
+    {id:5,title:"KLIPPAN 双人沙发",price:320,cond:"良好",city:"万锦",emoji:"🛋️",cat:"沙发",seller:"Coco",desc:"Klippan 两人位沙发，米灰色布艺，拆洗过一次，无污渍无宠物毛发，三人可轻松坐。"},
+    {id:6,title:"LACK 茶几 黑色",price:80,cond:"磨损",city:"密西沙加",emoji:"🪵",cat:"桌子",seller:"阿杰",desc:"Lack 边几，黑色，边角有磨损掉漆，承重正常，适合当床头柜或客厅边几。"},
+    {id:7,title:"MALM 床头柜 双抽屉",price:90,cond:"良好",city:"多伦多",emoji:"🗃️",cat:"收纳",seller:"小琳",desc:"Malm 床头柜，双抽屉带静音滑轨，白色，与床架同系列，自提，可搭配出售。"},
+    {id:8,title:"RÅSKOG 三层推车",price:70,cond:"全新",city:"万锦",emoji:"🛒",cat:"收纳",seller:"Marcus",desc:"Råskog 经典三层小推车，绿色，全新仅展示，厨房浴室收纳神器，可叠放。"}
+  ];
+
+  var condColor = { "全新":"var(--green)", "良好":"var(--blue)", "一般":"var(--orange)", "磨损":"var(--sec)" };
+  var catColors = ["#0058A3","#FF9500","#34C759","#FF3B30","#5856D6","#FF2D55"];
+
+  var exploreCats = [
+    {nm:"沙发",em:"🛋️"},{nm:"椅子",em:"🪑"},{nm:"桌子",em:"🪟"},{nm:"床",em:"🛏️"},
+    {nm:"衣柜",em:"🚪"},{nm:"收纳",em:"📦"},{nm:"灯具",em:"💡"},{nm:"书架",em:"📚"},
+    {nm:"地毯",em:"🟫"},{nm:"窗帘",em:"🪟"},{nm:"镜子",em:"🪞"},{nm:"其他",em:"✨"}
+  ];
+
+  var conversations = [
+    {name:"小琳", av:"琳", prev:"请问床架还在吗？可以小刀不～", tm:"14:32", unread:2, seller:true},
+    {name:"Marcus", av:"M", prev:"可以小刀，¥300 出给你", tm:"昨天", unread:0, seller:true},
+    {name:"阿杰", av:"杰", prev:"已下单 POÄNG 椅子，谢谢！", tm:"周一", unread:0, seller:false},
+    {name:"IKEAR 小助手", av:"🛟", prev:"您发布的「LACK 茶几」已通过审核", tm:"周日", unread:1, seller:false}
+  ];
+
+  var chips = ["推荐","沙发","桌椅","床","收纳","灯具","其他"];
+
+  /* ---------- Navigation state ---------- */
+  var currentTab = "home";
+  var overlays = []; // stack of overlay screen names
+  var launched = false;
+
+  function $(id){ return document.getElementById(id); }
+  function el(tag,cls){ var e=document.createElement(tag); if(cls) e.className=cls; return e; }
+
+  function refresh(){
+    // tab screens
+    var tabs = document.querySelectorAll(".tab-screen");
+    for(var i=0;i<tabs.length;i++){
+      var s = tabs[i];
+      var name = s.id.replace("screen-","");
+      if(name===currentTab){ s.classList.add("active"); }
+      else { s.classList.remove("active","active-left"); }
+    }
+    // overlays
+    var ovScreens = document.querySelectorAll(".overlay-screen");
+    for(var j=0;j<ovScreens.length;j++){ ovScreens[j].classList.remove("active","active-left"); }
+    for(var k=0;k<overlays.length;k++){
+      var o = $("screen-"+overlays[k]);
+      if(o) o.classList.add("active");
+    }
+    if(overlays.length){
+      var base = $("screen-"+currentTab);
+      if(base) base.classList.add("active-left");
+    }
+    // tab bar
+    var tb = $("tabbar");
+    if(launched && overlays.length===0){ tb.classList.remove("hidden"); }
+    else { tb.classList.add("hidden"); }
+    // status bar color on splash
+    var sb = $("statusbar");
+    if(overlays.indexOf("splash")>=0){ sb.classList.add("dark"); } else { sb.classList.remove("dark"); }
+  }
+
+  function goOverlay(name){ overlays.push(name); refresh(); }
+  function closeOverlay(){ if(overlays.length){ overlays.pop(); refresh(); } }
+  function switchTab(name){
+    currentTab = name;
+    overlays = [];
+    launched = true;
+    // update tab active state
+    var ts = document.querySelectorAll(".tab");
+    for(var i=0;i<ts.length;i++){ ts[i].classList.toggle("active", ts[i].getAttribute("data-tab")===name); }
+    refresh();
+  }
+
+  /* ---------- Toast ---------- */
+  var toastTimer;
+  function toast(msg){
+    var t=$("toast"); t.textContent=msg; t.classList.add("show");
+    clearTimeout(toastTimer); toastTimer=setTimeout(function(){ t.classList.remove("show"); },1600);
+  }
+
+  /* ---------- Segmented control ---------- */
+  function segmented(container, opts, initial, onChange){
+    container.innerHTML="";
+    var wrap=el("div","segmented");
+    var thumb=el("div","seg-thumb"); wrap.appendChild(thumb);
+    var btns = opts.map(function(o,i){
+      var b=el("button","seg-btn"+(i===initial?" active":"")); b.textContent=o; b.setAttribute("data-i",i); wrap.appendChild(b); return b;
+    });
+    container.appendChild(wrap);
+    function layout(){
+      var w=wrap.clientWidth, pad=2, gap=2;
+      var tw=(w-pad*2-gap*(opts.length-1))/opts.length;
+      thumb.style.width=tw+"px";
+      thumb.style.transform="translateX("+(initial*(tw+gap))+"px)";
+      wrap._step=tw+gap;
+    }
+    btns.forEach(function(b){
+      b.onclick=function(){
+        btns.forEach(function(x){ x.classList.remove("active"); });
+        b.classList.add("active");
+        thumb.style.transform="translateX("+(b.getAttribute("data-i")*wrap._step)+"px)";
+        if(onChange) onChange(+b.getAttribute("data-i"), opts[+b.getAttribute("data-i")]);
+      };
+    });
+    requestAnimationFrame(layout);
+  }
+
+  /* ---------- Render Home feed ---------- */
+  function renderChips(){
+    var c=$("chips"); c.innerHTML="";
+    chips.forEach(function(ch,i){
+      var d=el("div","chip"+(i===0?" active":"")); d.textContent=ch;
+      d.onclick=function(){
+        var all=c.querySelectorAll(".chip"); for(var k=0;k<all.length;k++) all[k].classList.remove("active");
+        d.classList.add("active");
+        filterFeed(ch);
+      };
+      c.appendChild(d);
+    });
+  }
+  function matchesChip(item, chip){
+    if(chip==="推荐"||chip==="其他") return true;
+    if(chip==="桌椅") return item.cat==="椅子"||item.cat==="桌子";
+    return item.cat===chip;
+  }
+  function filterFeed(chip){
+    var feed=$("feed"); feed.innerHTML="";
+    listings.forEach(function(it){
+      if(matchesChip(it,chip)) feed.appendChild(makeCard(it));
+    });
+    if(!feed.children.length){
+      var empty=el("div"); empty.style.cssText="text-align:center;color:var(--sec);padding:40px 0;font-size:15px;";
+      empty.textContent="该分类暂无商品，换个看看吧";
+      feed.appendChild(empty);
+    }
+  }
+  function makeCard(it){
+    var card=el("div","card tap");
+    var thumb=el("div","card-thumb");
+    thumb.style.background="linear-gradient(135deg,"+catColors[it.id%catColors.length]+"22,"+catColors[(it.id+2)%catColors.length]+"22)";
+    thumb.textContent=it.emoji;
+    var badge=el("div","cond-badge"); badge.style.background=condColor[it.cond]; badge.textContent=it.cond;
+    thumb.appendChild(badge);
+    var body=el("div","card-body");
+    var t=el("div","card-title"); t.textContent=it.title;
+    var meta=el("div","card-meta");
+    var p=el("div","card-price"); p.textContent="¥"+it.price;
+    var cty=el("div","card-city"); cty.textContent="📍 "+it.city;
+    meta.appendChild(p); meta.appendChild(cty);
+    body.appendChild(t); body.appendChild(meta);
+    card.appendChild(thumb); card.appendChild(body);
+    card.onclick=function(){ openDetail(it); };
+    return card;
+  }
+  function renderFeed(){ filterFeed("推荐"); }
+
+  /* ---------- Render Explore ---------- */
+  function renderExplore(){
+    var g=$("expGrid"); g.innerHTML="";
+    exploreCats.forEach(function(cat,i){
+      var tile=el("div","exp-tile tap");
+      var em=el("div","em"); em.textContent=cat.em;
+      var nm=el("div","nm"); nm.textContent=cat.nm;
+      tile.appendChild(em); tile.appendChild(nm);
+      tile.onclick=function(){ toast("已筛选："+cat.nm); switchTab("home");
+        // activate matching chip if possible
+        var ch=cat.nm; if(ch==="衣柜"||ch==="镜子"||ch==="地毯"||ch==="窗帘") ch="其他";
+        if(ch==="沙发"||ch==="床"||ch==="收纳"||ch==="桌椅"){ filterFeed(ch); }
+      };
+      g.appendChild(tile);
+    });
+  }
+
+  /* ---------- Render Messages ---------- */
+  function renderMessages(){
+    var list=$("convList"); list.innerHTML="";
+    conversations.forEach(function(c){
+      var row=el("div","conv tap");
+      var av=el("div","avatar"); av.textContent=c.av; av.style.background="linear-gradient(135deg,#"+(c.av==="🛟"?"8e8e93":"7bb0ff")+",#007AFF)";
+      var info=el("div","info");
+      var r1=el("div","r1");
+      var nm=el("div","nm"); nm.textContent=c.name;
+      var tm=el("div","tm"); tm.textContent=c.tm;
+      r1.appendChild(nm); r1.appendChild(tm);
+      var prev=el("div","prev"); prev.textContent=c.prev;
+      info.appendChild(r1); info.appendChild(prev);
+      row.appendChild(av); row.appendChild(info);
+      if(c.unread>0){ var u=el("div","unread"); u.textContent=c.unread; row.appendChild(u); }
+      row.onclick=function(){ openChat(c.name, c.av); };
+      list.appendChild(row);
+    });
+  }
+
+  /* ---------- Listing Detail ---------- */
+  function openDetail(it){
+    $("dTitle").textContent=it.title;
+    $("dPrice").textContent="¥"+it.price;
+    var cond=$("dCond"); cond.textContent=it.cond; cond.style.background=condColor[it.cond];
+    $("dCity").textContent="📍 "+it.city;
+    $("dAvatar").textContent=it.seller.charAt(0);
+    $("dSellerName").textContent=it.seller;
+    $("dDesc").textContent=it.desc;
+    // carousel
+    var track=$("carouselTrack"); track.innerHTML="";
+    var dots=$("carouselDots"); dots.innerHTML="";
+    for(var i=0;i<3;i++){
+      var s=el("div","slide");
+      s.style.background="linear-gradient(135deg,"+catColors[(it.id+i)%catColors.length]+"33,"+catColors[(it.id+i+2)%catColors.length]+"33)";
+      s.textContent=i===0?it.emoji:"📷";
+      track.appendChild(s);
+      var d=el("div","dot"+(i===0?" active":"")); dots.appendChild(d);
+    }
+    initCarousel();
+    $("favBtn").classList.remove("on");
+    $("contactBtn").onclick=function(){ openChat(it.seller, it.seller.charAt(0)); };
+    goOverlay("detail");
+  }
+
+  function initCarousel(){
+    var track=$("carouselTrack");
+    var dots=document.querySelectorAll("#carouselDots .dot");
+    var cidx=0;
+    function set(i){
+      cidx=Math.max(0,Math.min(2,i));
+      track.style.transform="translateX("+(-cidx*track.clientWidth)+"px)";
+      dots.forEach(function(d,k){ d.classList.toggle("active",k===cidx); });
+    }
+    var carousel=$("carousel");
+    var downX=0;
+    carousel.onpointerdown=function(e){ downX=e.clientX; };
+    carousel.onpointerup=function(e){
+      var dx=e.clientX-downX;
+      if(dx<-30) set(cidx+1); else if(dx>30) set(cidx-1);
+    };
+    dots.forEach(function(d,k){ d.onclick=function(){ set(k); }; });
+    set(0);
+  }
+
+  /* ---------- Chat ---------- */
+  var chatMessages = [];
+  function openChat(name, av){
+    $("chatName").textContent=name;
+    chatMessages = [
+      {side:"in", text:"你好，这件还在的～"},
+      {side:"out", text:"可以便宜一点吗？"},
+      {side:"in", text:"¥240 可以吗😊 自提的话再送你一套螺丝"}
+    ];
+    renderChat();
+    goOverlay("chat");
+  }
+  function renderChat(){
+    var area=$("chatArea"); area.innerHTML="";
+    chatMessages.forEach(function(m){
+      var b=el("div","bubble "+(m.side==="in"?"in":"out")); b.textContent=m.text;
+      area.appendChild(b);
+    });
+    area.scrollTop=area.scrollHeight;
+  }
+  function sendChat(){
+    var inp=$("chatInput"); var v=inp.value.trim();
+    if(!v) return;
+    chatMessages.push({side:"out", text:v});
+    inp.value="";
+    renderChat();
+    // simulate reply
+    setTimeout(function(){
+      chatMessages.push({side:"in", text:"好的，稍后联系你👌"});
+      renderChat();
+    },700);
+  }
+
+  /* ---------- Bottom sheet ---------- */
+  function openSheet(title, opts, selected, onSelect){
+    $("sheetTitle").textContent=title;
+    var box=$("sheetOpts"); box.innerHTML="";
+    opts.forEach(function(o){
+      var d=el("div","sheet-opt"+(o===selected?" sel":"")); d.textContent=o;
+      d.onclick=function(){
+        onSelect(o);
+        closeSheet();
+      };
+      box.appendChild(d);
+    });
+    $("sheetBack").classList.add("open");
+    $("sheet").classList.add("open");
+  }
+  function closeSheet(){
+    $("sheetBack").classList.remove("open");
+    $("sheet").classList.remove("open");
+  }
+
+  /* ---------- Face ID ---------- */
+  function openFace(){
+    $("faceModal").classList.add("open");
+    $("faceIcon").classList.add("scan");
+    $("faceMsg").textContent="验证以启用生物识别锁";
+    $("faceOk").textContent="验证";
+  }
+  function closeFace(){ $("faceModal").classList.remove("open"); $("faceIcon").classList.remove("scan"); }
+
+  /* ---------- Nav bar scroll shrink ---------- */
+  function wireScroll(){
+    var areas=document.querySelectorAll("[data-scroll]");
+    areas.forEach(function(a){
+      a.onscroll=function(){
+        var nav=a.parentElement.querySelector("[data-nav]");
+        if(!nav) return;
+        if(a.scrollTop>20) nav.classList.add("scrolled"); else nav.classList.remove("scrolled");
+      };
+    });
+  }
+
+  /* ---------- Wiring ---------- */
+  function init(){
+    refresh();
+
+    // segmented controls
+    segmented($("authSegWrap"), ["登录","注册"], 0, function(i){
+      $("authTitle").textContent = i===0?"登录":"注册";
+      $("nickField").style.display = i===0?"none":"block";
+    });
+    var condVal={v:"良好"};
+    segmented($("condSeg"), ["全新","良好","一般","磨损"], 1, function(i,v){ condVal.v=v; });
+
+    // home
+    renderChips(); renderFeed();
+    renderExplore();
+    renderMessages();
+
+    // tab bar
+    document.querySelectorAll(".tab").forEach(function(t){
+      t.onclick=function(){ switchTab(t.getAttribute("data-tab")); };
+    });
+
+    // auth actions
+    $("authContinue").onclick=function(){
+      var email=$("authEmail").value.trim();
+      if(!email){ toast("请输入邮箱"); return; }
+      launched=true; switchTab("home");
+    };
+    $("appleLogin").onclick=function(){ launched=true; switchTab("home"); };
+
+    // detail back + fav
+    document.querySelectorAll("[data-back]").forEach(function(b){ b.onclick=closeOverlay; });
+    $("favBtn").onclick=function(){ this.classList.toggle("on"); toast(this.classList.contains("on")?"已收藏":"已取消收藏"); };
+
+    // chat
+    $("chatSend").onclick=sendChat;
+    $("chatInput").addEventListener("keydown",function(e){ if(e.key==="Enter") sendChat(); });
+
+    // profile rows
+    document.querySelectorAll("[data-go]").forEach(function(r){
+      r.onclick=function(){
+        var g=r.getAttribute("data-go");
+        if(g==="myPosts") toast("我的发布：12 件");
+        else if(g==="myFav") toast("我的收藏：8 件");
+        else if(g==="settings") toast("设置");
+        else if(g==="about") toast("IKEAR v1.0 · 多伦多二手家具集市");
+      };
+    });
+
+    // face id toggle
+    var faceOn=false;
+    $("faceRow").onclick=function(){
+      if(!faceOn){ openFace(); }
+      else { faceOn=false; $("faceSwitch").classList.remove("on"); toast("已关闭生物识别锁"); }
+    };
+    $("faceOk").onclick=function(){
+      $("faceMsg").textContent="验证成功";
+      $("faceOk").textContent="完成";
+      setTimeout(function(){
+        faceOn=true;
+        $("faceSwitch").classList.add("on");
+        closeFace();
+        toast("生物识别锁已启用");
+      },700);
+    };
+
+    // sell: category picker
+    var catVal={v:""};
+    $("catPicker").onclick=function(){
+      openSheet("选择分类", exploreCats.map(function(c){return c.nm;}), catVal.v, function(o){
+        catVal.v=o;
+        var pf=$("catPicker");
+        pf.innerHTML="<span>"+o+"</span><svg class='chev' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.4' stroke-linecap='round'><polyline points='9 18 15 12 9 6'/></svg>";
+      });
+    };
+    $("sheetCancel").onclick=closeSheet;
+    $("sheetBack").onclick=closeSheet;
+    $("publishBtn").onclick=function(){
+      if(!$("sellTitle").value.trim()){ toast("请填写标题"); return; }
+      if(!$("sellPrice").value){ toast("请填写价格"); return; }
+      if(!catVal.v){ toast("请选择分类"); return; }
+      toast("发布成功，审核中…");
+      $("sellTitle").value=""; $("sellPrice").value=""; $("sellDesc").value="";
+      catVal.v="";
+      $("catPicker").innerHTML="<span class='ph'>请选择分类</span><svg class='chev' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.4' stroke-linecap='round'><polyline points='9 18 15 12 9 6'/></svg>";
+    };
+
+    wireScroll();
+
+    // splash auto-advance
+    overlays=["splash"]; refresh();
+    setTimeout(function(){ overlays=["auth"]; refresh(); },1500);
+  }
+
+  document.addEventListener("DOMContentLoaded", function(){
+    init();
+    requestAnimationFrame(function(){ document.body.classList.add("ready"); });
+  });
+})();
+</script>
+<style>
+  /* switch toggle (Face ID) */
+  .switch{ position:relative; width:51px; height:31px; background:#e9e9eb; border-radius:16px; transition:.25s; flex:none; }
+  .switch.on{ background:var(--green); }
+  .switch-knob{ position:absolute; top:2px; left:2px; width:27px; height:27px; background:#fff; border-radius:50%; box-shadow:0 1px 3px rgba(0,0,0,.25); transition:.25s; }
+  .switch.on .switch-knob{ transform:translateX(20px); }
+</style>
+</body>
+</html>
