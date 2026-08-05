@@ -33,7 +33,7 @@ import { useStore } from '../store/useStore';
 import { daysUntilExpiry, isExpired, needsRefreshReminder } from '../lib/expiry';
 import { formatPrice, timeAgo } from '../lib/format';
 import { getCategory } from '../data/categories';
-import { mockDataSource } from '../data/dataSource';
+import { dataSource } from '../data/dataSource';
 import type { Listing } from '../data/types';
 import { colors, radius, shadows, spacing, typography } from '../theme/tokens';
 
@@ -58,10 +58,10 @@ export function ListingDetailScreen() {
   const [page, setPage] = useState(0);
   const [accessories, setAccessories] = useState<Listing[]>([]);
 
-  // 「搭配周边」占位数据：mock 里的 accessory 类型，仅展示不可交易（M5 商城落地）
+  // 「搭配周边」占位数据：accessory 类型，仅展示不可交易（M5 商城落地）
   useEffect(() => {
     let alive = true;
-    mockDataSource
+    dataSource
       .getListings({ type: 'accessory' })
       .then((rows) => alive && setAccessories(rows.slice(0, 3)))
       .catch(() => alive && setAccessories([]));
@@ -69,6 +69,15 @@ export function ListingDetailScreen() {
       alive = false;
     };
   }, []);
+
+  // 浏览量 +1：fire-and-forget，失败静默（浏览体验不依赖它）。
+  // mock 数据源没有该方法，可选调用天然退化为 no-op。
+  useEffect(() => {
+    if (!listingId) return;
+    dataSource.incrementListingViews?.(listingId).catch(() => {
+      /* 计数失败不影响浏览 */
+    });
+  }, [listingId]);
 
   /** 封面（coverIndex）排到第一张 */
   const photos = useMemo(() => {

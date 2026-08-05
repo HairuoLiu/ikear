@@ -94,6 +94,12 @@ function makeExpect(actual: unknown, isNot: boolean): any {
           : false;
       check(pass, `expected ${stringify(actual)} ${isNot ? 'not ' : ''}toContain ${stringify(item)}`);
     },
+    toContainEqual(item: unknown) {
+      const pass = Array.isArray(actual)
+        ? actual.some((el) => deepEqual(el, item))
+        : false;
+      check(pass, `expected ${stringify(actual)} ${isNot ? 'not ' : ''}toContainEqual ${stringify(item)}`);
+    },
     toHaveLength(n: number) {
       const len = (actual as any)?.length;
       check(len === n, `expected length ${isNot ? 'not ' : ''}to be ${n}, got ${len}`);

@@ -9,11 +9,12 @@
  * 缓存的是**未按品类/地点收窄的整份 active 快照**，所以离线时切品类、切城市、
  * 换排序都还能在本地算出结果，不必联网。
  *
- * Supabase-ready：把 mockDataSource 换成 supabaseDataSource 即可，本文件无需改动。
+ * Supabase-ready：统一走 `dataSource`（由 dataSource.ts 按环境变量在 mock / Supabase
+ * 之间切换），本文件无需感知后端实现。
  */
 import type { BrowseFilter } from '../lib/browse';
 import { applyBrowseFilters } from '../lib/browse';
-import { mockDataSource, toBrowseFilter } from './dataSource';
+import { dataSource, toBrowseFilter } from './dataSource';
 import type { Listing } from './types';
 
 /** AsyncStorage 键。改结构时升版本号（v2…），旧键自然失效。 */
@@ -138,7 +139,7 @@ export async function getFeed(
     try {
       // 只把排序透传给数据源；品类/地点/关键词交给 applyBrowseFilters，
       // 这样缓存里始终是整份 active 快照。
-      snapshot = await mockDataSource.getListings(toBrowseFilter({ sort: filter.sort }));
+      snapshot = await dataSource.getListings(toBrowseFilter({ sort: filter.sort }));
       await saveFeed(snapshot);
     } catch {
       snapshot = await loadFeed();

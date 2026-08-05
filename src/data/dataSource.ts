@@ -8,6 +8,7 @@
 import { CONVERSATIONS, CURRENT_USER, LISTINGS, MESSAGES, applyLegacyMirror } from './mockData';
 // Supabase 真实后端实现（与 mockDataSource 同契约）。未设置 EXPO_PUBLIC_ 环境变量时不会被启用。
 import { supabaseDataSource } from './supabaseDataSource';
+import { DAY_MS, TTL_DAYS } from '../lib/expiry';
 import type {
   CategoryId,
   Conversation,
@@ -22,12 +23,16 @@ import type {
 // 共享契约：M1–M4 可直接从本模块取领域类型，无需再 import './types'。
 export type { Conversation, CreateListingInput, Listing, Message, User } from './types';
 
-/** 房源有效期（天）。到期后进入 expired，需要卖家刷新。 */
-export const LISTING_TTL_DAYS = 30;
+/**
+ * 房源有效期（天）。到期后进入 expired，需要卖家刷新。
+ * 单一真源是 lib/expiry.TTL_DAYS，这里只做转发，避免 30 这个常量出现多份拷贝
+ * （后端对应 SQL 的 public.listing_ttl_days()）。
+ */
+export const LISTING_TTL_DAYS = TTL_DAYS;
 /** 剩余天数 ≤ 该值时提示卖家刷新。 */
 export const EXPIRING_SOON_DAYS = 3;
 
-const DAY = 86_400_000;
+const DAY = DAY_MS;
 
 export type ListingSort = 'newest' | 'price_asc' | 'price_desc' | 'expiring';
 
@@ -94,6 +99,26 @@ export interface DataSource {
   getMessages(convId: string): Message[];
   /** 收藏页：按 ids 批量取 Listing，保持传入顺序，未命中的 id 跳过。 */
   getFavorites(ids: string[]): Listing[];
+
+  /**
+   * 可选：预拉取「同步读」方法所依赖的数据（profile / 会话 / 消息）。
+   * mock 实现不需要（数据本来就在内存里）；Supabase 实现必须在登录成功后调用一次，
+   * 否则 getProfile/getConversations/getMessages 只会返回空缓存。
+   * 调用方统一写 `await dataSource.hydrate?.()`，无需感知当前是哪种后端。
+   */
+  hydrate?(): Promise<void>;
+
+  /**
+   * 可选：商品详情页浏览量 +1，fire-and-forget（失败不影响浏览）。
+   * mock 不实现 —— 内存数据里的 views 是静态展示值。
+   */
+  incrementListingViews?(id: string): Promise<void>;
+
+  /**
+   * 可选：按 id 读**他人**的公开资料（不含 email）。
+   * mock 不实现 —— mock 的 Listing 上直接挂了 seller 快照。
+   */
+  getPublicProfile?(id: string): Promise<User | null>;
 }
 
 // ---------------------------------------------------------------------------

@@ -4,7 +4,7 @@
  * 收藏的增删仍走 store：useStore(s => s.toggleFavorite) / isFavorite，本 hook 只负责读。
  */
 import { useEffect, useState } from 'react';
-import { mockDataSource } from '../data/dataSource';
+import { dataSource } from '../data/dataSource';
 import type { Listing } from '../data/types';
 import { useStore } from '../store/useStore';
 
@@ -29,7 +29,7 @@ export function useFavorites(): UseFavoritesResult {
     }
 
     setLoading(true);
-    Promise.all(favorites.map((id) => mockDataSource.getListing(id)))
+    Promise.all(favorites.map((id) => dataSource.getListing(id)))
       .then((rows) => {
         if (!alive) return;
         // 已被删除的收藏项返回 null，直接过滤掉。

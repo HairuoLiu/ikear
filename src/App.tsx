@@ -204,14 +204,22 @@ function BiometricLock({ onUnlock }: { onUnlock: () => void }) {
   const tryAuth = async () => {
     setChecking(true);
     setFailed(false);
-    const support = await getBiometricSupport();
-    if (!support.available) {
-      onUnlock();
-      return;
-    }
-    const ok = await authenticate(support.reason);
-    if (ok) onUnlock();
-    else {
+    try {
+      const support = await getBiometricSupport();
+      if (!support.available) {
+        onUnlock();
+        return;
+      }
+      const ok = await authenticate(support.reason);
+      if (ok) {
+        onUnlock();
+        return;
+      }
+      setFailed(true);
+      setChecking(false);
+    } catch {
+      // 原生模块异常时不能停在「验证中」的死态，否则用户再也进不了 App：
+      // 降级为可重试的失败态。
       setFailed(true);
       setChecking(false);
     }
