@@ -34,22 +34,41 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 没有提交 package-lock.json，故不能用 `cache: npm`（找不到 lock 文件会失败）
+      # 也不能用 `npm ci`。提交 lockfile 后应改回 npm ci + cache。
       - name: Setup Node 22
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
+      # secrets 通过 env 传入而不是直接插值进 shell，避免特殊字符破坏脚本；
+      # 缺失时直接失败，否则会静默产出一个「回落到 mock 数据」的线上站点。
       - name: Export public env (inlined at build time)
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
         run: |
-          echo "EXPO_PUBLIC_SUPABASE_URL=${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}" >> "$GITHUB_ENV"
-          echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}" >> "$GITHUB_ENV"
+          if [ -z "$EXPO_PUBLIC_SUPABASE_URL" ] || [ -z "$EXPO_PUBLIC_SUPABASE_ANON_KEY" ]; then
+            echo "::error::缺少 EXPO_PUBLIC_SUPABASE_URL / EXPO_PUBLIC_SUPABASE_ANON_KEY Secrets，构建会静默回落到 mock 数据源，已中止部署。"
+            exit 1
+          fi
+          {
+            echo "EXPO_PUBLIC_SUPABASE_URL=$EXPO_PUBLIC_SUPABASE_URL"
+            echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=$EXPO_PUBLIC_SUPABASE_ANON_KEY"
+          } >> "$GITHUB_ENV"
 
       - name: Export Expo web bundle
         run: npx expo export --platform web
+
+      # 下面的部署以 `dist` 为项目根目录上传，仓库根的 vercel.json 不会随之生效，
+      # 因此在这里补一份「只含 SPA 回退」的静态配置，避免深链（/listing/xxx）404。
+      # 注意：不能直接复制根 vercel.json —— 它带 buildCommand，会让 Vercel 在 dist 里重新构建。
+      - name: Write SPA rewrite config into dist
+        run: |
+          echo '{"rewrites":[{"source":"/(.*)","destination":"/index.html"}]}' > dist/vercel.json
 
       # --- Deploy to Vercel (primary) ---------------------------------------
       - name: Deploy to Vercel

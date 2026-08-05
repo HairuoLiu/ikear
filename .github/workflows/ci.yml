@@ -14,17 +14,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 注意：本仓库当前没有提交 package-lock.json，因此不能开启 setup-node 的
+      # `cache: npm`（找不到 lock 文件会直接让这一步失败），也不能用 `npm ci`。
+      # TODO(platform): 提交 package-lock.json 后，把下面改回
+      #   with: { node-version: '22', cache: 'npm' } + `npm ci`，以获得可复现构建与缓存加速。
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
       - name: Type check (tsc --noEmit)
         run: npm run typecheck
 
       - name: Run unit & integration tests
         run: npm test
+
+      # 逻辑层端到端验收（纯 mock 数据源，无需设备/后端，确定性可重跑）
+      - name: Run independent E2E journeys
+        run: npm run e2e

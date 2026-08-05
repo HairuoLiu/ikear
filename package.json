@@ -9,6 +9,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "test": "node --test --experimental-strip-types --experimental-loader ./test/loader.mjs --import ./test/setup.ts \"src/**/*.test.ts\"",
+    "e2e": "node --experimental-strip-types --experimental-loader ./test/loader.mjs e2e/independent-e2e.ts",
     "typecheck": "tsc --noEmit",
     "ci:check": "tsc --noEmit && npm test",
     "build:ios": "expo prebuild --platform ios",
