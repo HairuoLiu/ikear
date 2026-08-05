@@ -40,6 +40,15 @@ function fakeClient(opts: {
     };
     const single = () => {
       if (opts.error) return { data: null, error: opts.error };
+      // 模拟 Supabase：insert/update 的 .single() 回传刚写入的行（含生成的 id）。
+      if (rec.op === 'insert' || rec.op === 'update') {
+        const p = rec.payload ?? {};
+        const data =
+          rec.op === 'insert'
+            ? { ...(p as Record<string, unknown>), id: (p as any).id ?? `gen_${table}` }
+            : p;
+        return { data, error: null };
+      }
       const list = rowsByTable[table] ?? [];
       return { data: list[0] ?? null, error: null };
     };
@@ -54,6 +63,11 @@ function fakeClient(opts: {
       },
       update(payload: unknown) {
         rec.op = 'update';
+        rec.payload = payload;
+        return api;
+      },
+      delete(payload?: unknown) {
+        rec.op = 'delete';
         rec.payload = payload;
         return api;
       },
@@ -466,5 +480,112 @@ describe('supabaseDataSource / hydrate', () => {
     expect(supabaseDataSource.getMessages('cnv_1')).toHaveLength(1);
     expect(supabaseDataSource.getMessages('cnv_2')).toHaveLength(1);
     expect(supabaseDataSource.getProfile().nickname).toBe('我');
+  });
+});
+
+describe('supabaseDataSource / M3 社交写操作', () => {
+  it('createConversation：无现存会话时按角色落库 buyer/seller', async () => {
+    const uid = '11111111-1111-4111-8111-111111111111';
+    const c = fakeClient({
+      user: { id: uid },
+      // 先让 getListings 把 listing 填进 cache，供 seller 推导
+      rows: {
+        listings: [listingRow({ id: 'lst_1', seller_id: uid })], // 我是卖家
+        conversations: [], // 无现存会话 → 走 insert
+      },
+    });
+    __setSupabaseClient(c);
+    await supabaseDataSource.getListings();
+
+    const conv = await supabaseDataSource.createConversation({ listingId: 'lst_1', peerId: 'u_buyer' });
+
+    const insert = c.calls.find((x) => x.table === 'conversations' && x.op === 'insert');
+    expect(insert).toBeDefined();
+    // 我是卖家 → 对方是买家
+    expect((insert!.payload as any).buyer_id).toBe('u_buyer');
+    expect((insert!.payload as any).seller_id).toBe(uid);
+    expect(conv.id).toBeDefined();
+  });
+
+  it('createConversation：已存在双向会话时直接返回，不再 insert（get-or-create）', async () => {
+    const uid = '11111111-1111-4111-8111-111111111111';
+    const c = fakeClient({
+      user: { id: uid },
+      rows: {
+        listings: [listingRow({ id: 'lst_1', seller_id: 'u_seller' })],
+        conversations: [
+          {
+            id: 'cnv_x',
+            listing_id: 'lst_1',
+            buyer_id: uid,
+            seller_id: 'u_seller',
+            last_message: '',
+            last_message_at: 'x',
+            unread_count: 0,
+          },
+        ],
+      },
+    });
+    __setSupabaseClient(c);
+    await supabaseDataSource.getListings();
+
+    const conv = await supabaseDataSource.createConversation({ listingId: 'lst_1', peerId: 'u_seller' });
+
+    expect(c.calls.some((x) => x.table === 'conversations' && x.op === 'insert')).toBe(false);
+    expect(conv.id).toBe('cnv_x');
+  });
+
+  it('sendMessage：落库到指定 conversation_id，sender 取 auth，read=false', async () => {
+    const uid = '11111111-1111-4111-8111-111111111111';
+    const c = fakeClient({ user: { id: uid } });
+    __setSupabaseClient(c);
+
+    const msg = await supabaseDataSource.sendMessage({
+      conversationId: 'cnv_1',
+      listingId: 'lst_1',
+      receiverId: 'u2',
+      content: '在吗',
+    });
+
+    const insert = c.calls.find((x) => x.table === 'messages' && x.op === 'insert');
+    expect(insert).toBeDefined();
+    const p = insert!.payload as any;
+    expect(p.conversation_id).toBe('cnv_1');
+    expect(p.sender_id).toBe(uid);
+    expect(p.receiver_id).toBe('u2');
+    expect(p.content).toBe('在吗');
+    expect(p.read).toBe(false);
+    expect(msg.content).toBe('在吗');
+  });
+
+  it('toggleFavorite：未收藏时插入，已收藏时删除', async () => {
+    const uid = '11111111-1111-4111-8111-111111111111';
+    // 未收藏 → insert
+    const c1 = fakeClient({ user: { id: uid }, rows: { favorites: [] } });
+    __setSupabaseClient(c1);
+    await supabaseDataSource.toggleFavorite('lst_1');
+    expect(c1.calls.some((x) => x.table === 'favorites' && x.op === 'insert')).toBe(true);
+
+    // 已收藏 → delete
+    const c2 = fakeClient({
+      user: { id: uid },
+      rows: { favorites: [{ user_id: uid, listing_id: 'lst_1', created_at: 'x' }] },
+    });
+    __setSupabaseClient(c2);
+    await supabaseDataSource.toggleFavorite('lst_1');
+    expect(c2.calls.some((x) => x.table === 'favorites' && x.op === 'delete')).toBe(true);
+  });
+
+  it('markConversationRead：把未读消息更新为已读，且只命中该会话', async () => {
+    const c = fakeClient({});
+    __setSupabaseClient(c);
+
+    await supabaseDataSource.markConversationRead('cnv_1');
+
+    const upd = c.calls.find((x) => x.table === 'messages' && x.op === 'update');
+    expect(upd).toBeDefined();
+    expect((upd!.payload as any).read).toBe(true);
+    expect(hasPair(upd!.filters, 'conversation_id', 'cnv_1')).toBe(true);
+    expect(hasPair(upd!.filters, 'read', false)).toBe(true);
   });
 });

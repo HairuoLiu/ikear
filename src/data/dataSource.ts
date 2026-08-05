@@ -12,11 +12,13 @@ import { DAY_MS, TTL_DAYS } from '../lib/expiry';
 import type {
   CategoryId,
   Conversation,
+  CreateConversationInput,
   CreateListingInput,
   Listing,
   ListingStatus,
   ListingType,
   Message,
+  SendMessageInput,
   User,
 } from './types';
 
@@ -119,6 +121,16 @@ export interface DataSource {
    * mock 不实现 —— mock 的 Listing 上直接挂了 seller 快照。
    */
   getPublicProfile?(id: string): Promise<User | null>;
+
+  // ---- M3 社交写操作（live 模式落 Supabase；mock 模式由 store 本地维护）----
+  /** 找到或创建「我」与对方在某商品下的会话，返回会话。 */
+  createConversation(input: CreateConversationInput): Promise<Conversation>;
+  /** 在指定会话下发送一条消息，返回新建的消息。 */
+  sendMessage(input: SendMessageInput): Promise<Message>;
+  /** 切换收藏状态（已收藏则取消）。 */
+  toggleFavorite(id: string): Promise<void>;
+  /** 将会话内未读消息标记为已读。 */
+  markConversationRead(conversationId: string): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -153,6 +165,11 @@ export function settleStatus(listing: Listing, now: number = Date.now()): Listin
 
 let db: Listing[] = LISTINGS.map((l) => ({ ...l }));
 let seq = 0;
+
+// mock 社交数据（写操作的本地副本，仅 mock 模式下会被 store 通过 dataSource 落到这里；
+// 默认 mock 路径下 store 仍自行维护本地状态，此处保证接口契约在两种后端都完整可满足）。
+let mockConversations: Conversation[] = CONVERSATIONS.map((c) => ({ ...c }));
+let mockMessages: Message[] = MESSAGES.map((m) => ({ ...m }));
 
 function matches(l: Listing, f: ListingFilter): boolean {
   if (f.category && l.category !== f.category) return false;
@@ -297,6 +314,51 @@ export const mockDataSource: DataSource = {
       .filter((l): l is Listing => !!l)
       .map((l) => settleStatus(l, now));
   },
+
+  // ---- M3 社交写操作（mock 本地副本实现）----
+
+  async createConversation(input: CreateConversationInput) {
+    const listing = db.find((l) => l.id === input.listingId);
+    const sellerId = listing?.sellerId ?? input.peerId;
+    // mock 下「我」固定为 u_me；根据对方是否卖家推导角色，保证 buyer/seller 不重复。
+    const iAmSeller = 'u_me' === sellerId;
+    const conv: Conversation = {
+      id: `c_${Date.now()}`,
+      listingId: input.listingId,
+      buyerId: iAmSeller ? input.peerId : 'u_me',
+      sellerId: iAmSeller ? 'u_me' : input.peerId,
+      lastMessage: '',
+      lastMessageAt: new Date().toISOString(),
+      unreadCount: 0,
+    };
+    mockConversations = [conv, ...mockConversations.filter((c) => c.id !== conv.id)];
+    return conv;
+  },
+
+  async sendMessage(input: SendMessageInput) {
+    const msg: Message = {
+      id: `m_${Date.now()}`,
+      listing_id: input.listingId,
+      sender_id: 'u_me',
+      receiver_id: input.receiverId,
+      content: input.content,
+      read: true,
+      created_at: new Date().toISOString(),
+      conversationId: input.conversationId,
+    };
+    mockMessages = [...mockMessages, msg];
+    return msg;
+  },
+
+  async toggleFavorite(_id: string) {
+    // mock 模式下收藏由 store 本地维护，这里保持幂等空操作以兑现接口契约。
+  },
+
+  async markConversationRead(conversationId: string) {
+    mockConversations = mockConversations.map((c) =>
+      c.id === conversationId ? { ...c, unreadCount: 0 } : c
+    );
+  },
 };
 
 /** 仅供测试：把内存库恢复成初始 mock 数据。 */
@@ -314,6 +376,11 @@ export function __resetMockDb(): void {
  */
 function supabaseEnabled(): boolean {
   return Boolean(process.env.EXPO_PUBLIC_SUPABASE_URL && process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY);
+}
+
+/** 供 store / screens 判断是否处于 live 模式，避免在未配置时触碰 supabase 客户端。 */
+export function isSupabaseMode(): boolean {
+  return supabaseEnabled();
 }
 
 export const dataSource: DataSource = supabaseEnabled() ? supabaseDataSource : mockDataSource;

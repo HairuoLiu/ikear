@@ -34,6 +34,8 @@ import {
 import { colors, layout, radius, spacing, typography } from './theme/tokens';
 import { useStore } from './store/useStore';
 import { authenticate, getBiometricSupport } from './lib/biometrics';
+import { getSupabaseClient, isSupabaseConfigured } from './lib/supabase';
+import { dataSource } from './data/dataSource';
 import { SplashScreen } from './components/SplashScreen';
 import { AuthScreen } from './screens/AuthScreen';
 import { HomeScreen } from './screens/HomeScreen';
@@ -273,6 +275,39 @@ export default function App() {
     const t = setTimeout(() => setSplash(false), 1400);
     return () => clearTimeout(t);
   }, [loadPersisted]);
+
+  // Supabase 模式：启动时若已有 session 则直接进入已登录态；并订阅登录/登出事件，
+  // 让 store 的 isAuthenticated / currentUser 与后端会话保持一致（mock 模式直接跳过）。
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+    let active = true;
+    let unsub: (() => void) | undefined;
+    (async () => {
+      const client = await getSupabaseClient();
+      const { data: sess } = await client.auth.getSession();
+      if (sess.session && active) {
+        await dataSource.hydrate?.();
+        useStore.setState({ currentUser: dataSource.getProfile(), isAuthenticated: true });
+      }
+      const { data: sub } = client.auth.onAuthStateChange((_event: string, session: any) => {
+        if (session) {
+          dataSource.hydrate?.().then(() => {
+            if (!active) return;
+            useStore.setState({ currentUser: dataSource.getProfile(), isAuthenticated: true });
+          });
+        } else {
+          dataSource.hydrate?.();
+          useStore.setState({ currentUser: null, isAuthenticated: false });
+        }
+      });
+      unsub = () => sub.subscription.unsubscribe();
+    })();
+    return () => {
+      active = false;
+      unsub?.();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 退出登录后重新上锁
   useEffect(() => {

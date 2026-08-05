@@ -7,7 +7,18 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CURRENT_USER, LISTINGS, MESSAGES, USERS } from '../data/mockData';
-import { CategoryId, Condition, Listing, Message, User } from '../data/types';
+import { dataSource, isSupabaseMode } from '../data/dataSource';
+import { getSupabaseClient } from '../lib/supabase';
+import {
+  CategoryId,
+  Condition,
+  Conversation,
+  CreateConversationInput,
+  Listing,
+  Message,
+  SendMessageInput,
+  User,
+} from '../data/types';
 import { DAY_MS, TTL_DAYS, refresh } from '../lib/expiry';
 import { MAX_PHOTOS, canPublish } from '../lib/listingRules';
 
@@ -142,6 +153,23 @@ function ordered(photos: string[], coverIndex: number): string[] {
   return [cover, ...copy];
 }
 
+/**
+ * live 模式下找到「我」与对方在某商品下的会话；不存在则创建。
+ * 复用 dataSource 的会话缓存（hydrate 已预拉取），避免重复建会话。
+ */
+async function ensureConversation(
+  listingId: string,
+  peerId: string,
+  _meId: string
+): Promise<Conversation> {
+  const existing = dataSource
+    .getConversations()
+    .find((c) => c.listingId === listingId && (c.buyerId === peerId || c.sellerId === peerId));
+  if (existing) return existing;
+  const input: CreateConversationInput = { listingId, peerId };
+  return dataSource.createConversation(input);
+}
+
 let msgSeq = 1000;
 
 export const useStore = create<StoreState>((set, get) => {
@@ -181,8 +209,22 @@ export const useStore = create<StoreState>((set, get) => {
     messages: MESSAGES,
     filters: defaultFilters,
 
-    async login(email) {
-      // 演示模式：任意非空邮箱/密码均可登录。接 Supabase 时只替换这里。
+    async login(email, password) {
+      if (isSupabaseMode()) {
+        const client = await getSupabaseClient();
+        const { data, error } = await client.auth.signInWithPassword({ email, password });
+        if (error) throw new Error(error.message);
+        // 登录成功后预拉取 profile / 会话 / 消息缓存，供同步读方法使用。
+        await dataSource.hydrate?.();
+        const user = dataSource.getProfile();
+        set({
+          currentUser: user,
+          isAuthenticated: true,
+          location: get().location.city ? get().location : { city: user.city },
+        });
+        return true;
+      }
+      // 演示模式：任意非空邮箱/密码均可登录。
       const user = USERS.find((u) => u.email === email) ?? CURRENT_USER;
       await new Promise((r) => setTimeout(r, 400));
       set({
@@ -193,7 +235,26 @@ export const useStore = create<StoreState>((set, get) => {
       return true;
     },
 
-    async register(nickname, email) {
+    async register(nickname, email, password) {
+      if (isSupabaseMode()) {
+        const client = await getSupabaseClient();
+        const { data, error } = await client.auth.signUp({
+          email,
+          password,
+          options: { data: { nickname } },
+        });
+        if (error) throw new Error(error.message);
+        // Supabase 默认开启邮箱确认：没有 session 时不自动登录，等待用户确认邮件。
+        if (!data.session) return true;
+        await dataSource.hydrate?.();
+        const user = dataSource.getProfile();
+        set({
+          currentUser: user,
+          isAuthenticated: true,
+          location: { city: user.city },
+        });
+        return true;
+      }
       await new Promise((r) => setTimeout(r, 500));
       const user: User = {
         id: 'u_' + Date.now(),
@@ -209,15 +270,26 @@ export const useStore = create<StoreState>((set, get) => {
     },
 
     logout() {
+      if (isSupabaseMode()) {
+        // 退出登录时清掉会话与本地社交缓存；失败不应阻塞 UI。
+        getSupabaseClient()
+          .then((c) => c.auth.signOut())
+          .catch(() => {})
+          .finally(() => dataSource.hydrate?.());
+      }
       set({ currentUser: null, isAuthenticated: false });
     },
 
     toggleFavorite(id) {
+      // 乐观更新本地收藏列表，保证 UI 即时反馈；live 模式再异步落库。
       const favorites = get().favorites.includes(id)
         ? get().favorites.filter((f) => f !== id)
         : [...get().favorites, id];
       set({ favorites });
       persist();
+      if (isSupabaseMode()) {
+        dataSource.toggleFavorite(id).catch((e) => console.error('toggleFavorite 失败', e));
+      }
     },
 
     isFavorite(id) {
@@ -296,6 +368,36 @@ export const useStore = create<StoreState>((set, get) => {
         city,
       };
 
+      if (isSupabaseMode()) {
+        // live 模式：异步落库，由真实记录接管；同步只清空草稿并返回本地对象供调用方流转，
+        // 避免乐观插入的本地 listing 与真实记录重复。
+        set({ drafts: null });
+        persist();
+        (async () => {
+          try {
+            const created = await dataSource.createListing({
+              title: d.title,
+              description: d.description ?? '',
+              price: d.price ?? 0,
+              category: d.category ?? 'other',
+              photos,
+              condition: d.condition,
+              location: { city, district },
+              type: 'secondhand',
+              sellerId,
+            });
+            set({
+              listings: [created, ...get().listings.filter((l) => l.id !== created.id)],
+              drafts: null,
+            });
+            persist();
+          } catch (e) {
+            console.error('publishDraft 失败', e);
+          }
+        })();
+        return listing;
+      }
+
       set({ listings: [listing, ...get().listings], drafts: null });
       persist();
       return listing;
@@ -334,24 +436,66 @@ export const useStore = create<StoreState>((set, get) => {
 
     /** 降价重上架：改价 + 记录降价百分比 + 重置 TTL + 回到 active。 */
     discountRelist(id, newPrice) {
-      const t = Date.now();
-      patchListing(id, (l) => {
-        const pct = l.price > 0 ? Math.round(((l.price - newPrice) / l.price) * 100) : 0;
-        return {
-          ...l,
-          price: newPrice,
-          discount: pct,
-          expiresAt: ttlFrom(t),
-          status: 'active',
-        };
-      });
+      const l0 = get().listings.find((x) => x.id === id);
+      const pct = l0 && l0.price > 0 ? Math.round(((l0.price - newPrice) / l0.price) * 100) : 0;
+      if (isSupabaseMode()) {
+        // R2-4：改价 + 重置 TTL 必须拆两步——expires_at 客户端只读（见 toRow 的 42501 保护），
+        // 续期唯一入口是 refreshListing()（走 refresh-listing Edge Function，24h 曝光由服务端决定）。
+        (async () => {
+          try {
+            await dataSource.updateListing(id, { price: newPrice, discount: pct, status: 'active' });
+            const refreshed = await dataSource.refreshListing(id);
+            patchListing(id, () => refreshed);
+          } catch (e) {
+            console.error('discountRelist 失败', e);
+          }
+        })();
+      }
+      // 乐观更新本地：立即体现新价与折扣（TTL 由 refresh 兜底）。
+      patchListing(id, (l) => ({
+        ...l,
+        price: newPrice,
+        discount: pct,
+        expiresAt: ttlFrom(Date.now()),
+        status: 'active',
+      }));
     },
 
     sendMessage(listingId, receiverId, content) {
+      const meId = get().currentUser?.id ?? 'u_me';
+      if (isSupabaseMode()) {
+        // live 模式：先找到/创建会话，再落库；同时乐观更新本地消息供 UI 立即渲染。
+        (async () => {
+          try {
+            const conv = await ensureConversation(listingId, receiverId, meId);
+            const input: SendMessageInput = {
+              conversationId: conv.id,
+              listingId,
+              receiverId,
+              content,
+            };
+            await dataSource.sendMessage(input);
+          } catch (e) {
+            console.error('sendMessage 失败', e);
+          }
+        })();
+        const optimistic: Message = {
+          id: 'm_' + ++msgSeq,
+          listing_id: listingId,
+          sender_id: meId,
+          receiver_id: receiverId,
+          content,
+          read: true,
+          created_at: nowIso(),
+          sender: get().currentUser ?? undefined,
+        };
+        set({ messages: [...get().messages, optimistic] });
+        return;
+      }
       const msg: Message = {
         id: 'm_' + ++msgSeq,
         listing_id: listingId,
-        sender_id: get().currentUser?.id ?? 'u_me',
+        sender_id: meId,
         receiver_id: receiverId,
         content,
         read: true,
@@ -362,6 +506,17 @@ export const useStore = create<StoreState>((set, get) => {
     },
 
     markConversationRead(listingId, counterpartId) {
+      if (isSupabaseMode()) {
+        const conv = dataSource
+          .getConversations()
+          .find(
+            (c) => c.listingId === listingId && (c.buyerId === counterpartId || c.sellerId === counterpartId)
+          );
+        if (conv) {
+          dataSource.markConversationRead(conv.id).catch((e) => console.error('markConversationRead 失败', e));
+        }
+        return;
+      }
       set({
         messages: get().messages.map((m) =>
           m.listing_id === listingId && m.sender_id === counterpartId ? { ...m, read: true } : m

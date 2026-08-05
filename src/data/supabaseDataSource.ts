@@ -9,9 +9,11 @@ import { getSupabaseClient } from '../lib/supabase';
 import { DAY_MS, TTL_DAYS, isExpired } from '../lib/expiry';
 import type {
   Conversation,
+  CreateConversationInput,
   CreateListingInput,
   Listing,
   Message,
+  SendMessageInput,
   User,
 } from './types';
 import type { DataSource, ListingFilter } from './dataSource';
@@ -349,5 +351,123 @@ export const supabaseDataSource: DataSource = {
     return ids
       .map((id) => cache.listings.find((l) => l.id === id))
       .filter((l): l is Listing => !!l);
+  },
+
+  // ---- M3 社交写操作（live 模式落 Supabase）----
+
+  /**
+   * 找到或创建「我」与对方在某商品下的会话。
+   * 先按 listing + 双向 (buyer,seller) 查重，避免重复建会话；再按角色落库。
+   * 角色推导依赖 hydrate() 预拉取进 cache.listings 的 sellerId（live 模式下列表已加载）。
+   */
+  async createConversation(input: CreateConversationInput) {
+    const client = await getSupabaseClient();
+    const { data: auth } = await client.auth.getUser();
+    const meId = auth?.user?.id;
+    if (!meId) throw new Error('createConversation 失败: 未登录，无法确定会话归属');
+
+    const listing = cache.listings.find((l) => l.id === input.listingId);
+    const sellerId = listing?.sellerId ?? input.peerId;
+    const iAmSeller = meId === sellerId;
+    const buyerId = iAmSeller ? input.peerId : meId;
+    const sellerIdVal = iAmSeller ? meId : input.peerId;
+
+    const { data: existing } = await client
+      .from('conversations')
+      .select('*')
+      .eq('listing_id', input.listingId)
+      .or(
+        `and(buyer_id.eq.${meId},seller_id.eq.${input.peerId}),and(buyer_id.eq.${input.peerId},seller_id.eq.${meId})`
+      )
+      .maybeSingle();
+    if (existing) {
+      const conv = mapConversation(existing);
+      cache.conversations = [conv, ...cache.conversations.filter((c) => c.id !== conv.id)];
+      return conv;
+    }
+
+    const { data, error } = await client
+      .from('conversations')
+      .insert({ listing_id: input.listingId, buyer_id: buyerId, seller_id: sellerIdVal })
+      .select()
+      .single();
+    if (error) throw new Error(`createConversation 失败: ${error.message}`);
+    const conv = mapConversation(data);
+    cache.conversations = [conv, ...cache.conversations];
+    return conv;
+  },
+
+  /** 在指定会话下发送消息。conversation_id 必填（0004 起 NOT NULL）。 */
+  async sendMessage(input: SendMessageInput) {
+    const client = await getSupabaseClient();
+    const { data: auth } = await client.auth.getUser();
+    const meId = auth?.user?.id ?? 'u_me';
+    const { data, error } = await client
+      .from('messages')
+      .insert({
+        conversation_id: input.conversationId,
+        listing_id: input.listingId,
+        sender_id: meId,
+        receiver_id: input.receiverId,
+        content: input.content,
+        read: false,
+      })
+      .select()
+      .single();
+    if (error) throw new Error(`sendMessage 失败: ${error.message}`);
+    const msg = mapMessage(data);
+    cache.messages[input.conversationId] = [
+      ...(cache.messages[input.conversationId] ?? []),
+      msg,
+    ];
+    const conv = cache.conversations.find((c) => c.id === input.conversationId);
+    if (conv) {
+      conv.lastMessage = input.content;
+      conv.lastMessageAt = msg.created_at;
+    }
+    return msg;
+  },
+
+  /** 切换收藏状态：已收藏则删除，否则插入。依赖 RLS 仅允许操作自己的 favorites。 */
+  async toggleFavorite(id: string) {
+    if (!id) return;
+    const client = await getSupabaseClient();
+    const { data: auth } = await client.auth.getUser();
+    const uid = auth?.user?.id;
+    if (!uid) throw new Error('toggleFavorite 失败: 未登录');
+
+    const { data: existing } = await client
+      .from('favorites')
+      .select('listing_id')
+      .eq('user_id', uid)
+      .eq('listing_id', id)
+      .maybeSingle();
+    if (existing) {
+      const { error } = await client
+        .from('favorites')
+        .delete()
+        .eq('user_id', uid)
+        .eq('listing_id', id);
+      if (error) throw new Error(`toggleFavorite 失败: ${error.message}`);
+    } else {
+      const { error } = await client
+        .from('favorites')
+        .insert({ user_id: uid, listing_id: id });
+      if (error) throw new Error(`toggleFavorite 失败: ${error.message}`);
+    }
+  },
+
+  /** 将会话内未读消息标记为已读（仅更新 read 列，受 RLS 限制参与者可改）。 */
+  async markConversationRead(conversationId: string) {
+    if (!conversationId) return;
+    const client = await getSupabaseClient();
+    const { error } = await client
+      .from('messages')
+      .update({ read: true })
+      .eq('conversation_id', conversationId)
+      .eq('read', false);
+    if (error) throw new Error(`markConversationRead 失败: ${error.message}`);
+    const conv = cache.conversations.find((c) => c.id === conversationId);
+    if (conv) conv.unreadCount = 0;
   },
 };

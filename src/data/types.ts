@@ -56,6 +56,26 @@ export type CreateListingInput = Partial<Listing> & {
 };
 
 // ---------------------------------------------------------------------------
+// 社交写操作入参（M3）
+// live 模式由 supabaseDataSource 落 Supabase；mock 模式由 store 本地维护，
+// 两者共用同一组入参契约，调用方无需感知后端。
+// ---------------------------------------------------------------------------
+
+/** 找到或创建「我」与对方在某商品下的会话。 */
+export interface CreateConversationInput {
+  listingId: ID;
+  /** 对方参与者 id（买家或卖家） */
+  peerId: ID;
+}
+
+export interface SendMessageInput {
+  conversationId: ID;
+  listingId: ID;
+  receiverId: ID;
+  content: string;
+}
+
+// ---------------------------------------------------------------------------
 // Listing
 // ---------------------------------------------------------------------------
 
