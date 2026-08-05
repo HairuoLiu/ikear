@@ -5,197 +5,145 @@
 | 审计人 | qa-engineer（独立审计角色，不参与功能开发） |
 | 日期 | 2026-08-04 |
 | 被审对象 | `ikear-mobile`（前端）+ `ikear-backend`（Supabase schema / RLS） |
-| 审计范围 | 质量门禁、Supabase 集成测试覆盖、上线前风险清单 |
-| 结论 | **NO-GO（针对「切换到线上 Supabase」这一动作）** / mock 版本本身 **GO** |
+| 审计轮次 | 初审 21:25–21:34 → **复审 22:02–22:10**（三位开发在初审期间并行提交了修复） |
+| 结论 | **GO-WITH-NOTES** —— 分阶段切换：浏览/详情/发布链路可上线；消息/资料/store 链路 **暂不可切** |
 
-> 说明：本次审计为只读审计。除本文件外未修改任何源码、标准或架构文档，未执行任何 git 提交。
-> 三位开发的评审笔记（`docs/reviews/*.md`）在本报告完成时**尚未产出**（`docs/` 目录此前不存在，本文件为该目录首个文件），
-> 因此本报告为完全独立得出的结论，未参考亦未受其影响。建议三份笔记就绪后做一次交叉比对。
+> 本次为只读审计。除本文件外未修改任何源码、标准或架构文档，未执行任何 git 操作。
+> **重要说明**：初审进行时，三位开发正在同一仓库并行修复。复审发现 8 个源文件已变更、新增 `src/data/supabaseDataSource.test.ts`。
+> 本报告以**复审时的最新代码**为准；初审发现的问题及其处置结论完整保留在附录，作为审计轨迹。
 
 ---
 
 ## (a) 质量门禁结果
 
-全部命令在 `ikear-mobile/` 下实际执行，输出如下。
+全部命令在 `ikear-mobile/` 下实际执行。
+
+### 复审（最终，以此为准）
 
 | 门禁 | 命令 | 结果 | 判定 |
 | --- | --- | --- | --- |
 | 类型检查 | `npx tsc --noEmit` | exit 0，**0 个 error** | ✅ PASS |
-| 单元/集成测试 | `npm test` | **tests 225 · suites 53 · pass 225 · fail 0 · skipped 0 · todo 0**（1.37s） | ✅ PASS（与基线 225/0 一致） |
-| 独立 E2E（附加，非必需） | `node --experimental-strip-types --experimental-loader ./test/loader.mjs e2e/independent-e2e.ts` | **10 条旅程 · 通过 10 · 失败 0** | ✅ PASS |
-
-`npm test` 尾部原始输出：
+| 单元/集成测试 | `npm test` | **tests 248 · suites 61 · pass 248 · fail 0 · skipped 0 · todo 0** | ✅ PASS |
+| 独立 E2E（附加） | `node --experimental-strip-types --experimental-loader ./test/loader.mjs e2e/independent-e2e.ts` | **10 条旅程 · 通过 10 · 失败 0** | ✅ PASS |
 
 ```
-1..53
-# tests 225
-# suites 53
-# pass 225
+# tests 248
+# suites 61
+# pass 248
 # fail 0
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 1370.0643
 ```
 
-### ⚠️ 门禁本身的两个盲区（重要）
+相对基线（225 pass / 53 suites）**净增 23 个用例、8 个套件**，全部来自新增的 `supabaseDataSource.test.ts`。零失败、零跳过。
 
-门禁「全绿」并不等于「全覆盖」，以下两点会让绿灯产生误导：
+### 初审 → 复审 的门禁变化
 
-1. **测试文件根本没有被类型检查。**
-   `tsconfig.json` 的 `exclude` 含 `"**/*.test.ts"`，`include` 也不含 `test/`、`e2e/`。
-   即 `tsc --noEmit` 的 0 error 只覆盖生产源码，约 20 个 `*.test.ts` 与 `test/setup.ts`、`e2e/independent-e2e.ts` 完全未参与类型检查。
-   → 建议增加第二份 `tsconfig.test.json`（`include` 覆盖测试文件）并在 `ci:check` 中一并运行。
+| 时点 | tsc | tests | 备注 |
+| --- | --- | --- | --- |
+| 初审 21:30 | 0 error | 225 pass / 53 suites | 但 `@supabase/supabase-js` **未安装**、`package-lock.json` **缺失** —— 门禁是在缺件状态下通过的 |
+| 复审 22:05 | 0 error | **248 pass / 61 suites** | SDK 已真实安装、lockfile 已生成，**装上真包后 tsc 仍为 0 error** ✅ |
 
-2. **依赖未真实安装，门禁是在「缺件」状态下通过的。**
-   `package.json` 声明了 `"@supabase/supabase-js": "^2.45.0"`，但 `node_modules/@supabase` **不存在**。
-   之所以仍能通过，是因为 `src/types/supabase-js.d.ts` 用 `declare module` 把整个 SDK 声明成了 `any`，且 `src/lib/supabase.ts` 用动态 `import()` 懒加载 —— 静态检查与测试图都碰不到这个包。
-   → 真实安装该包后**必须重跑两条门禁**：ambient `declare module` 与 SDK 自带类型可能冲突，且 `any` 消失后会暴露目前被掩盖的类型错误（见 P0-2）。
+初审时我提出的最大门禁疑虑（「装上真 SDK 后类型错误可能爆发」）已被复审实测排除。
 
-3. **`package-lock.json` 缺失**，而两条 workflow（`ci.yml`、`deploy-web.yml`）都用 `npm ci` —— `npm ci` 在无 lockfile 时会直接失败。CI 目前不可能是绿的。
+### ⚠️ 门禁仍存的一个盲区
+
+**测试文件不参与类型检查。** `tsconfig.json:19` 的 `exclude` 仍含 `"**/*.test.ts"`，`include` 也不含 `test/`、`e2e/`。
+即 `tsc --noEmit` 的 0 error **不覆盖**任何测试文件 —— 包括本次新增的、恰恰是最需要类型保护的 `supabaseDataSource.test.ts`（23 个用例、内含手写 fake client）。
+→ 建议增加 `tsconfig.test.json` 并纳入 `ci:check`。**（P2-4，未修复）**
 
 ---
 
 ## (b) 测试覆盖缺口
 
-### 结论：Supabase 集成层的测试覆盖率为 **0**
-
-检索证据：
+### 初审结论：Supabase 集成层覆盖率为 **0**
 
 ```
 grep -rn -i "supabase" --include=*.test.ts src/   →  NO MATCH
 ```
 
-225 个用例、53 个套件，**没有任何一个**触及 `src/data/supabaseDataSource.ts`（268 行）或 `src/lib/supabase.ts`（45 行）。
-现有测试全部落在 mock 数据源与纯逻辑层（browse / expiry / badges / listingRules / messaging / categories / format / feedCache）。
+225 个用例中**没有任何一个**触及 `supabaseDataSource.ts` 或 `lib/supabase.ts`。根因三条叠加：动态 `import()` 使测试图不含该包；`.d.ts` 把客户端声明为 `any` 导致类型层也无保护；`supabaseDataSource` 直接调用 `getSupabaseClient()`，无依赖注入入口。
 
-根因不止「懒加载动态 import」这一条，而是三条叠加：
+### 复审结论：**该缺口已基本填平** ✅
 
-- `getSupabaseClient()` 通过 `await import('@supabase/supabase-js')` 惰性加载，测试图不含该包；
-- 客户端被 `.d.ts` 声明为 `any`，**类型层面也提供不了任何保护**；
-- `supabaseDataSource` 内部直接调用 `getSupabaseClient()`，**没有依赖注入入口**，无法在不改源码的前提下塞入 fake client。
+新增 `src/data/supabaseDataSource.test.ts`，23 个用例 / 8 个套件：
 
-### 具体缺口清单与建议
+| 套件 | 行 | 对应我初审提出的缺口 |
+| --- | --- | --- |
+| `mapListing` | 150 | **C1** ✅ |
+| `getListings 查询构造` | 189 | **C4** ✅ |
+| `getListing` | 223 | ✅ |
+| `createListing` | 231 | ✅（含未登录抛错路径） |
+| `refreshListing（0003 之后走 Edge Function）` | 286 | **P3-14** ✅ 顺带解决 |
+| `toRow 特权列` | 337 | **C1** ✅（并覆盖 0003 列级权限） |
+| `0003 新接口` | 372 | ✅ |
+| `hydrate` | 413 | **C6** ✅ |
 
-| # | 未覆盖对象 | 风险 | 建议做法（低成本优先） |
+### 仍存的覆盖缺口
+
+| # | 未覆盖对象 | 风险 | 建议 |
 | --- | --- | --- | --- |
-| C1 | `mapListing` / `mapProfile` / `mapConversation` / `mapMessage` / `toRow` | snake_case ↔ camelCase 映射写错字段名，`any` 与运行期都不报错，只会静默丢字段 | 这些是**纯函数**，导出后即可直接单测。性价比最高，建议优先补齐（每个 mapper 一个「全字段往返」用例 + 一个「缺省值回落」用例） |
-| C2 | `supabaseEnabled()` / `dataSource` 导出开关 | 开关逻辑错误无人发现（本次已发现它实际是死代码，见 P0-1） | 把开关抽成可测纯函数 `resolveDataSource(env)`，对「两个都设 / 只设一个 / 都不设」三种输入断言返回哪个实现 |
-| C3 | `getSupabaseClient()` 未配置时抛错、单例复用（`_clientPromise` 只解析一次） | 并发首调可能重复建客户端；错误文案回归无保护 | 断言未配置时 reject 且含指引文案；并发调 5 次断言 `createClient` 只被调用 1 次 |
-| C4 | `getListings` 的 filter → query builder 组装（`.eq/.in/.ilike/.order` 调用序列） | 过滤/排序条件漏传或传错列名，线上才发现 | 注入一个记录调用链的 fake builder，断言生成的调用序列（含 `location->>city` 这类 jsonb 列名） |
-| C5 | **mock 与 supabase 双实现的契约一致性** | 两套实现行为已经出现分歧（见 P2-8），且无任何机制拦截 | 新增一个「契约一致性」套件：同一组输入分别喂给 `mockDataSource` 与注入 fake 的 `supabaseDataSource`，断言输出形状与语义一致 |
-| C6 | `hydrate()` | 目前无调用点、无测试，属于纯粹的死代码（见 P0-4） | 接线后补一个「预拉取后同步方法能读到数据」的用例 |
-
-### 前置改造建议（使上述测试成为可能）
-
-给 `supabaseDataSource` 增加一个仅供测试的 client 注入点（例如导出 `__setClientFactory()`，或把模块改成 `createSupabaseDataSource(getClient)` 工厂 + 默认实例）。
-这是一次小改动，但能把 313 行目前**零覆盖**的集成代码变成可测代码。
+| C2 | `supabaseEnabled()` / `dataSource` 导出开关 | 开关逻辑本身仍无用例。初审已证实这个开关曾是死代码而无人察觉 | 抽成纯函数 `resolveDataSource(env)`，对「两个都设 / 只设一个 / 都不设」三种输入断言返回哪个实现 |
+| C3 | `getSupabaseClient()` 未配置抛错、`_clientPromise` 单例复用 | 并发首调可能重复建客户端；错误文案回归无保护 | 断言未配置时 reject 且含指引文案；并发调 5 次断言 `createClient` 只被调 1 次 |
+| C5 | **mock 与 supabase 双实现契约一致性** | 两套实现仍有 2 处已知分歧（P2-5、P2-6），无机制拦截新分歧 | 同一组输入分别喂给两个实现，断言输出形状与语义一致 |
+| C7 | 测试文件自身不被类型检查 | 见上文盲区 | `tsconfig.test.json` |
 
 ---
 
-## (c) 风险清单
+## (c) 风险清单（复审后状态）
 
-严重度：**P0 = 阻断上线** / **P1 = 上线前必修** / **P2 = 上线前应修** / **P3 = 可排期**
-
-### P0 — 阻断「连接线上 Supabase」
-
-#### P0-1 ❌ 环境变量开关是死代码，切换后 App 行为完全不变
-
-`dataSource.ts:294` 定义了：
-
-```ts
-export const dataSource: DataSource = supabaseEnabled() ? supabaseDataSource : mockDataSource;
-```
-
-但**没有任何生产代码 import 这个 `dataSource`**。全仓检索，所有消费方都绕过了它：
-
-| 文件 | 实际写法 |
-| --- | --- |
-| `src/data/feedCache.ts:16,141` | `import { mockDataSource } from './dataSource'` → `mockDataSource.getListings(...)` |
-| `src/hooks/useFavorites.ts:7,32` | `import { mockDataSource }` → `mockDataSource.getListing(id)` |
-| `src/screens/ListingDetailScreen.tsx:36,64` | `import { mockDataSource }` |
-| `src/store/useStore.ts:9` | 更彻底 —— 直接 `import { CURRENT_USER, LISTINGS, MESSAGES, USERS } from '../data/mockData'`，连数据源层都跳过了 |
-
-后果：即使正确配置了 `EXPO_PUBLIC_SUPABASE_URL` + `ANON_KEY`，首页 feed、收藏、详情、以及由 Zustand store 驱动的全部界面，**依然 100% 读 mock 数据**。
-「改一行 `export const dataSource` 即可切后端」这一架构承诺当前**不成立**。
-
-> 修复：把上述 4 处改为 `import { dataSource }`；`useStore` 需要把 mock 常量初始化改成经数据源异步注水。这不是一行改动，需按真实工作量排期。
-
-#### P0-2 ❌ `supabaseDataSource.ts:196` 双重 `.data`，`createListing` 必崩
-
-```ts
-const { data: auth } = await client.auth.getUser();   // auth 已经是 data，即 { user }
-...
-seller_id: input.sellerId ?? auth.data.user?.id ?? 'u_me',   // ← auth.data 是 undefined
-```
-
-`getUser()` 返回 `{ data: { user }, error }`，已解构为 `auth`，正确写法应是 `auth.user?.id` —— 同文件 `hydrate()` 第 116–117 行就是正确的，两处不一致。
-未显式传 `sellerId` 时，`auth.data` 为 `undefined`，读 `.user` 抛 `TypeError`，发布流程直接崩溃。
-因客户端被 `.d.ts` 声明为 `any`，**`tsc` 抓不到这个错**，225 个用例也碰不到这行。
-
-#### P0-3 ❌ 依赖未安装 + 无 lockfile
-
-`@supabase/supabase-js` 在 `dependencies` 中但未落地到 `node_modules`；`package-lock.json` 缺失导致 `npm ci` 在 `ci.yml` 与 `deploy-web.yml` 中都会失败。
-上线前须：`npm install` 生成并提交 lockfile → 重跑 `tsc` + `npm test` → 确认 ambient `.d.ts` 是否需要删除或收窄。
-
-#### P0-4 ❌ `hydrate()` 无调用点
-
-`supabaseDataSource` 的四个同步方法（`getProfile` / `getConversations` / `getMessages` / `getFavorites`）走 cache-aside，全靠 `hydrate()` 预注水。
-全仓检索 `hydrate` 只有定义与注释，**无任何调用**。切到 Supabase 后这四个方法将永远返回空数组 / `nickname: '我'` 的占位 profile —— 消息、会话、个人资料页会静默空白（不报错，更难排查）。
-
----
+严重度：**P1 = 上线前必修** / **P2 = 上线前应修** / **P3 = 可排期**
+初审的 4 项 P0 中 **3 项已修复**，详见附录。
 
 ### P1 — 上线前必修
 
-#### P1-5 ⚠️ `seller_id` 类型与 RLS 不匹配
+#### P1-1 ❌ `useStore.ts` 仍直连 mock 数据，store 驱动的界面不会切换
 
-后端 `listings.seller_id` 是 `uuid not null references auth.users(id)`，RLS 为 `with check (seller_id = auth.uid())`。
-前端 `supabaseDataSource.createListing` 的兜底值是字符串 `'u_me'`（mock 用户 id）。
-一旦走到兜底分支：先触发 Postgres `22P02 invalid input syntax for type uuid`，即便格式合法也会被 RLS 拒绝。
-**未登录状态下不存在任何可成功发布的路径** —— 这是正确的安全行为，但前端目前没有对应的「请先登录」引导，会表现为一个原始错误。
+`src/store/useStore.ts:9`：
 
-#### P1-6 ⚠️ DataSource 契约缺少写操作，聊天与收藏无法落库
+```ts
+import { CURRENT_USER, LISTINGS, MESSAGES, USERS } from '../data/mockData';
+```
 
-后端已建好 `messages` / `conversations` / `favorites` 三张表及配套 RLS（0002 还做了防伪造会话、消息不可篡改的加固），但前端 `DataSource` 接口**只有读**：
-没有 `sendMessage`、`createConversation`、`toggleFavorite` / `getFavoriteIds`。
-即：接上线上后端后，聊天发送与收藏动作仍只改内存 store，刷新即丢，且**跨设备不同步**。后端能力被闲置。
+初审发现的「环境变量开关是死代码」已**部分修复**：`feedCache.ts:17`、`useFavorites.ts:7`、`ListingDetailScreen.tsx:36` 三处均已改为 `import { dataSource }` ✅。
+但 Zustand store —— 也就是驱动大部分界面的主状态 —— **仍然绕过整个数据源层直接 import mock 常量**。
+后果：切到 Supabase 后，走 `dataSource` 的浏览/详情/收藏链路会读真实数据，而 store 驱动的界面继续显示 mock 数据，**两者混杂**。这比全 mock 更难排查。
 
-#### P1-7 ⚠️ 测试文件不参与类型检查
+#### P1-2 ❌ `hydrate()` 仍无生产调用点
 
-见 (a) 节盲区 1。属于门禁自身的可信度问题，建议与上线改造同批修复。
+`hydrate` 已被提升为 `DataSource` 可选方法（`dataSource.ts:109`）、已在 `supabaseDataSource` 实现并有测试覆盖 ✅ —— 但全仓检索，**应用代码中无任何调用**（`src/App.tsx` 既无 `hydrate` 也无 `dataSource` 引用）。
+
+`getProfile` / `getConversations` / `getMessages` / `getFavorites` 四个同步方法全靠 `hydrate()` 预注水。不调用 = 切到 Supabase 后这四个方法**永远返回空数组 / `nickname:'我'` 的占位 profile**。
+这是最难在验收中被发现的一类故障：**不报错、不崩溃、只是静默空白**。
+
+> 修复：在登录成功 / App 启动后 `await dataSource.hydrate?.()`，并处理失败分支（网络失败时应给出可见提示而非静默空列表）。
+
+#### P1-3 ❌ `src/types/supabase-js.d.ts` 仍在，反而屏蔽了刚装好的真实类型
+
+初审时该 shim 是**必要的**（包未安装）。现在 `@supabase/supabase-js` 已真实安装到 `node_modules`，但这个 ambient `declare module '@supabase/supabase-js'` 仍然存在，会**优先于 SDK 自带类型生效**，把 `createClient` 与整个客户端继续钉死成 `any`。
+
+结果：装了真包却拿不到任何类型保护。初审那个 `auth.data.user?.id` 的崩溃级 bug（现已修复）之所以能躲过 `tsc`，根因正是这个 shim —— 而这个根因**至今未拔除**。
+
+> 修复：删除 `src/types/supabase-js.d.ts`，重跑 `tsc --noEmit`，把暴露出来的真实类型错误逐个修掉。这才是把这类 bug 挡在门外的治本手段。
+
+#### P1-4 ⚠️ `DataSource` 契约仍缺写操作，聊天与收藏无法落库
+
+复审后接口新增了 `hydrate?` / `incrementListingViews?` / `getPublicProfile?`，但仍**没有** `sendMessage` / `createConversation` / 收藏 CRUD。
+
+后端已建好 `messages` / `conversations` / `favorites` 三表及配套 RLS（0002 还做了防伪造会话、消息投递后不可篡改的触发器加固）。前端无写入路径 = 聊天发送与收藏动作仍只改内存，刷新即丢、跨设备不同步，**后端能力闲置**。
+
+> 决策项：要么本期补齐，要么明确声明「本期只上线浏览+发布，聊天与云端收藏下期」。不建议含糊带过。
 
 ---
 
 ### P2 — 上线前应修
 
-#### P2-8 ⚠️ mock 与 Supabase 双实现行为分歧（三处）
-
-| 分歧点 | mock 行为 | Supabase 行为 | 影响 |
+| # | 项 | 位置 | 说明 |
 | --- | --- | --- | --- |
-| 关键词搜索 | 同时匹配 `title` + `description`（`dataSource.ts:142-150`） | 只 `ilike('title', ...)`（`supabaseDataSource.ts:155`） | 同一关键词在两种模式下结果不同，用户感知为「搜不到」 |
-| 过期惰性结算 | 读取时 `settleStatus`，过期的 active 自动显示为 expired | `mapListing` 不做结算，原样返回 DB 的 `status` | 公开 feed 侧已被 0002 的 RLS（`status='active' and expires_at > now()`）兜住；但**卖家自己的「我的房源」页**走 `listings_select_own`（无 `expires_at` 条件），在 `pg_cron` 结算前会把已过期挂牌显示成 active，续期提醒失效 |
-| `getFavorites` | 在完整内存库中查找 | 只在 `cache.listings`（**上一次 `getListings` 的结果**）中查找 | 收藏的商品若不在当前 feed 结果里（换了分类/筛选/翻页），收藏页会**静默少条目**，不报错 |
-
-建议：在 `mapListing` 中复用 `settleStatus` 保持口径一致；`getFavorites` 改为按 id 直接查库；搜索补上 `description`（可用 `.or('title.ilike.%q%,description.ilike.%q%')`）。
-
-#### P2-9 ⚠️ Web 构建/部署配置：SPA rewrites 不会生效
-
-`vercel.json`（仓库根）定义了 `/(.*) → /index.html` 的 rewrites，但 `deploy-web.yml` 用的是
-`amondnet/vercel-action` + `working-directory: dist` —— 上传的是**已构建好的 `dist` 目录本身**，
-根目录的 `vercel.json` 不在 `dist` 内，因此其 `rewrites` 与 `buildCommand` 均不会被应用。
-当前 App 用 React Navigation 而非 expo-router，正常使用只停留在 `/`，影响有限；但任何深链或非根路径刷新会 404。
-建议：构建后把一份 `vercel.json`（只保留 rewrites）拷进 `dist`，或改用 Vercel 的 Git 集成让根 `vercel.json` 生效。
-
-#### P2-10 ⚠️ `app.config.js` 的 `extra` 层级写错
-
-```js
-return { ...config, expo: { ...config.expo, extra: {...} } };
-```
-
-Expo 传入的 `config` **已经是扁平化的 ExpoConfig**（即 `app.json` 里 `expo` 键的内容被提升到顶层），`config.expo` 为 `undefined`。
-这样写会在 ExpoConfig 内部再造一层 `expo`，`extra` 落在错误层级，`Constants.expoConfig.extra.supabaseUrl` 取不到值。
-当前无实际故障（代码统一读 `process.env.EXPO_PUBLIC_*`，全仓无 `expo-constants` 使用），但配置是错的且具误导性。
-正确写法：`return { ...config, extra: { ...config.extra, supabaseUrl, supabaseAnonKey } }`。
+| P2-4 | 测试文件不参与类型检查 | `tsconfig.json:19` | 见 (a) 节盲区。新增的 23 个 Supabase 用例正处在这个盲区里 |
+| P2-5 | `getFavorites` 只在 `cache.listings` 中查找 | `supabaseDataSource.ts:347` | 只在**上一次 `getListings` 的结果**里找。收藏的商品若不在当前 feed（换了分类/筛选/翻页），收藏页会**静默少条目**且不报错。mock 侧是在完整库中查找 → 行为分歧。建议改为按 id 直接查库 |
+| P2-6 | 关键词搜索只匹配 title | `supabaseDataSource.ts:194` | mock 侧同时匹配 `title` + `description`。同一关键词两种模式结果不同，用户感知为「搜不到」。建议 `.or('title.ilike.%q%,description.ilike.%q%')` |
 
 ---
 
@@ -203,21 +151,20 @@ Expo 传入的 `config` **已经是扁平化的 ExpoConfig**（即 `app.json` �
 
 | # | 项 | 说明 |
 | --- | --- | --- |
-| P3-11 | `.env.example` 含真实 project ref | `EXPO_PUBLIC_SUPABASE_URL=https://izoxfohuvnrfvatsrpnz.supabase.co` 是真实项目地址。URL 本身按设计可公开（真正边界是 RLS，此处不构成密钥泄露），但**示例文件应使用占位符**，避免误导他人指向生产实例。建议改为 `https://<your-project-ref>.supabase.co` |
-| P3-12 | 生物识别双实现接口漂移风险 | `biometrics.ts`（Web）与 `biometrics.native.ts`（原生）各自复制了一份 `BiometricSupport` 接口与三个导出。平台分流本身**正确**（Metro 对原生优先解析 `.native.ts`，Web 回落 `.ts`；`tsc` 走 `.ts` 且两侧签名一致），但无任何测试或共享类型文件保证两侧不漂移。建议把 `BiometricSupport` 抽到共享 `types.ts` 由双方 import |
-| P3-13 | `listings.views` 未映射 | DB 有 `views int not null default 0`，前端 `Listing` 类型与 `mapListing` 均未包含，浏览量能力闲置 |
-| P3-14 | 续期逻辑两处实现 | 后端已有 `supabase/functions/refresh-listing` Edge Function，前端 `refreshListing` 却直接 `.update({status,expires_at})`。TTL=30 天的常量因此存在于 mock、supabaseDataSource、DB 默认值、Edge Function 四处，易漂移。建议统一走 Edge Function 或明确废弃它 |
+| P3-7 | `.env.example` 含真实 project ref | `EXPO_PUBLIC_SUPABASE_URL=https://izoxfohuvnrfvatsrpnz.supabase.co` 是真实项目地址。URL 按设计可公开（真正边界是 RLS，不构成密钥泄露），但**示例文件应用占位符**，避免他人误指生产实例。建议改为 `https://<your-project-ref>.supabase.co` |
+| P3-8 | 仓库根遗留 6 个临时文件 | `verify-err.txt` / `verify-full.txt` / `verify-npm.txt` / `verify-one.txt` / `verify-out.txt` / `verify-raw.txt`，均为 untracked 的调试产物。应删除或加入 `.gitignore`，避免误提交。（非我创建，未代为删除） |
+| P3-9 | 生物识别双实现接口重复 | `biometrics.ts`（Web）与 `biometrics.native.ts`（原生）各自复制 `BiometricSupport` 接口与三个导出。平台分流本身**正确**，但无测试或共享类型保证两侧不漂移。建议把接口抽到共享 `types.ts` |
 
 ---
 
-### 团队指定的 4 项集成风险 — 逐条核验结论
+### 团队指定的 4 项集成风险 — 逐条核验
 
-| 风险项 | 核验结论 | 严重度 |
+| 风险项 | 复审结论 | 严重度 |
 | --- | --- | --- |
-| `dataSource.ts` 的环境变量开关 | ❌ **不通过** —— 开关存在但无消费方，属死代码；切换后行为不变（P0-1）。另注：`dataSource` 是模块加载期求值的 `const`，运行时无法改变，这一点在 Expo 构建期内联的前提下可接受 | **P0** |
-| RLS 对齐 | ⚠️ **部分通过** —— 后端 0001+0002 质量高（默认 deny、公开可见性收紧为 `active and expires_at > now()`、注册自动建档触发器、会话/消息防伪造与不可篡改触发器、`security_invoker` 视图、helper 固定 `search_path`），前端列名映射与 `location->>city` 表达式索引亦对齐；**但**前端 `seller_id` 兜底 `'u_me'` 与 uuid + `auth.uid()` 冲突（P1-5），且缺写操作导致 messages/conversations/favorites 的策略无前端可用（P1-6） | **P1** |
-| 生物识别 Web 分流 | ✅ **通过** —— `biometrics.ts`（Web 返回不可用并引导邮箱/WebAuthn）与 `biometrics.native.ts`（expo-local-authentication）导出签名一致，平台解析顺序正确，调用方（`App.tsx:36`、`ProfileScreen.tsx:43`）无需感知。仅存接口重复的漂移风险（P3-12） | **P3** |
-| Web 构建配置 | ⚠️ **部分通过** —— `expo export --platform web` 路径可用、`EXPO_PUBLIC_*` 经 workflow 注入正确、`.gitignore` 已排除 `.env*`；但 `vercel.json` 的 rewrites 因 `working-directory: dist` 而失效（P2-9），`app.config.js` 的 `extra` 层级错误（P2-10），且 `npm ci` 因缺 lockfile 会失败（P0-3） | **P2**（`npm ci` 部分为 P0） |
+| `dataSource.ts` 环境变量开关 | ⚠️ **部分通过** —— 初审时开关无任何消费方（纯死代码），现 3 处消费方已正确接线 ✅；但 `useStore.ts:9` 仍直连 mockData，且 `hydrate()` 无调用点，切换后会出现「真实数据与 mock 数据混杂 + 社交模块静默空白」 | **P1** |
+| RLS 对齐 | ✅ **通过（含 1 项待办）** —— 后端质量高：0001 建表+默认 deny，0002 收紧公开可见性为 `active and expires_at > now()`、注册自动建档触发器、会话/消息防伪造与不可篡改触发器、`security_invoker` 视图、helper 固定 `search_path`；0003 列级权限加固（堵住 anon 批量抓邮箱、禁止自改 rating/sold_count/expires_at/boosted_until/views）；0004 消息通道加固。前端侧初审发现的 `seller_id` 兜底 `'u_me'` 与 uuid + `auth.uid()` 冲突**已修复** ✅（改为未登录即抛可读错误）。**唯一待办**：messages/conversations/favorites 的策略仍无前端写入路径可用（P1-4） | **P1**（仅剩契约缺口） |
+| 生物识别 Web 分流 | ✅ **通过** —— `biometrics.ts`（Web 返回不可用并引导邮箱/WebAuthn）与 `biometrics.native.ts`（expo-local-authentication）导出签名一致，Metro 平台解析顺序正确（原生优先 `.native.ts`，Web 回落 `.ts`），调用方 `App.tsx:36`、`ProfileScreen.tsx:43` 无需感知。仅存接口重复的漂移风险 | **P3** |
+| Web 构建配置 | ✅ **通过** —— 初审发现的两个问题均已修复：① `deploy-web.yml:71` 现在会在构建后写入 `dist/vercel.json`（只含 rewrites，且注释明确说明不能直接拷根 `vercel.json`，因其带 `buildCommand` 会导致 Vercel 在 dist 内重新构建）✅；② `app.config.js` 的 `extra` 已从错误的 `config.expo.extra` 层级改到顶层 `config.extra`，并补了说明注释 ✅。`package-lock.json` 已生成，`npm ci` 可用 ✅ | ✅ |
 
 ---
 
@@ -227,37 +174,68 @@ Expo 传入的 `config` **已经是扁平化的 ExpoConfig**（即 `app.json` �
 
 | 场景 | 判定 |
 | --- | --- |
-| 继续交付 / 演示**当前 mock 版本** | ✅ **GO** —— 门禁全绿（tsc 0 error、225/225、E2E 10/10），质量扎实 |
-| **切换到线上 Supabase**（任务 #19） | 🔴 **NO-GO** |
-| 部署 Web（任务 #20，mock 模式） | 🟡 **GO-WITH-NOTES** —— 需先补 lockfile 修好 `npm ci`，并处理 rewrites |
+| 交付 / 演示**当前 mock 版本** | ✅ **GO** —— 门禁全绿（tsc 0 error、248/248、E2E 10/10） |
+| **切换线上 Supabase：浏览 / 详情 / 发布 链路** | 🟡 **GO-WITH-NOTES** —— 代码路径已通、有测试覆盖，但须先做完下方冒烟验证 |
+| **切换线上 Supabase：消息 / 个人资料 / store 驱动界面** | 🔴 **NO-GO** —— P1-1（store 直连 mock）+ P1-2（hydrate 无调用）会导致数据混杂与静默空白 |
+| 部署 Web（mock 模式，任务 #20） | ✅ **GO** —— lockfile 与 SPA rewrites 均已修复 |
 
-### NO-GO 理由（三条硬伤，任一单独即可阻断）
+**综合结论：GO-WITH-NOTES（分阶段切换）。**
 
-1. **开关不通电** —— 配好环境变量也不会切换数据源，全部界面仍读 mock（P0-1）。
-2. **切过去就崩** —— `createListing` 在 `auth.data.user?.id` 处必抛 TypeError，且类型系统与测试双双失明（P0-2）。
-3. **依赖没装、CI 跑不起来** —— SDK 未安装、无 lockfile，`npm ci` 必失败；装上后门禁需重跑，结果未知（P0-3）。
+### 判定依据
 
-即使前两条修好，`hydrate()` 无调用点（P0-4）会让消息与个人资料静默空白 —— 这是最难在验收中被发现的一类故障。
+初审时我给出 NO-GO，三条硬伤为：开关不通电、切过去必崩、依赖没装。复审确认：
 
-### 转为 GO 的最小验收清单
+- ✅ 崩溃级 bug（`auth.data.user?.id`）已修复，并补了未登录的可读错误
+- ✅ SDK 已装、lockfile 已生成，且**装上真包后 tsc 仍 0 error**
+- ✅ 开关已为浏览/详情/收藏三处接线
+- ✅ 零覆盖的集成层现有 23 个用例
+- ❌ 但 store 仍直连 mock、`hydrate()` 仍无人调用 —— 全量切换会产生**数据混杂**与**社交模块静默空白**
 
-上线前须逐项完成并复验：
+三位开发在极短时间内的修复质量很高，剩余项已从「崩溃级」降为「接线不完整」，故从 NO-GO 上调为分阶段 GO。
 
-- [ ] **P0-1** 4 处消费方改用 `dataSource`；`useStore` 改为经数据源注水，不再直接 import `mockData`
-- [ ] **P0-2** `auth.data.user?.id` → `auth.user?.id`；顺带全文件排查同类解构错误
-- [ ] **P0-3** `npm install @supabase/supabase-js` → 提交 `package-lock.json` → **重跑 `tsc --noEmit` 与 `npm test` 并确认仍为 0 error / 225 pass**；评估 `src/types/supabase-js.d.ts` 是否应删除（保留会继续屏蔽真实类型）
-- [ ] **P0-4** 在登录成功 / App 启动后调用 `hydrate()`，并处理其失败分支
-- [ ] **P1-5** 未登录时不进入发布流程，给出明确引导；移除 `'u_me'` 兜底，改为「无 uid 即报错」
-- [ ] **P1-6** `DataSource` 补齐 `sendMessage` / `createConversation` / 收藏 CRUD，或明确声明本期不上线聊天与云端收藏
-- [ ] **C1/C5** 至少补齐 mapper 纯函数单测 + 一个双实现契约一致性套件，让 Supabase 路径不再零覆盖
-- [ ] **P2-9** 修复 Web SPA rewrites
-- [ ] 用**真实 Supabase 实例**做一次冒烟：匿名浏览 feed → 注册（验证 profiles 触发器建档）→ 发布 → 续期 → 过期结算 → 会话与消息读写，逐条对照 RLS 是否按预期放行/拒绝
+### 转为完全 GO 的验收清单
+
+- [ ] **P1-1** `useStore` 改为经 `dataSource` 注水，移除 `import ... from '../data/mockData'`
+- [ ] **P1-2** 在登录成功 / App 启动后调用 `await dataSource.hydrate?.()`，并处理失败分支（不可静默吞掉）
+- [ ] **P1-3** 删除 `src/types/supabase-js.d.ts`，重跑 `tsc --noEmit`，修掉真实类型暴露出的错误 —— **这是防止同类 bug 再次逃逸的治本项**
+- [ ] **P1-4** 补齐 `sendMessage` / `createConversation` / 收藏 CRUD，或明确书面声明本期不上线聊天与云端收藏
+- [ ] **P2-4** 增加 `tsconfig.test.json` 让测试文件纳入类型检查
+- [ ] **P2-5 / P2-6** 修 `getFavorites` 查库、搜索补 `description`
+- [ ] **C2 / C5** 补开关纯函数用例 + 双实现契约一致性套件
+- [ ] **真机冒烟**（用真实 Supabase 实例，逐条对照 RLS 是否按预期放行/拒绝）：
+      匿名浏览 feed → 注册（验证 profiles 触发器建档）→ 发布 → 续期（走 Edge Function）→ 过期结算 → 详情页读 `public_profiles`（确认拿不到 email）→ 尝试自改 rating/expires_at（应被 0003 触发器钉回）
 
 ### 给团队的提示
 
-后端 `ikear-backend` 的两份 migration（尤其 0002 的安全加固）质量明显高于前端集成层 —— 后端已把 RLS 与生命周期做扎实，**当前短板集中在前端「最后一公里」的接线上**：开关没接、注水没调、写操作没实现。
-建议把上述 P0 四项作为任务 #19 的实际工作内容来排期，而不是当作「改一行配置」。
+后端（4 份 migration，安全加固扎实）与前端集成层（映射、查询构造、错误处理均已有测试）质量都不错。
+**当前短板集中在「最后一公里的接线」**：store 没接、注水没调、类型 shim 没拔。这三项都不是大改动，但**任何一项遗漏都会让线上切换看起来「能跑」却数据错乱**，且不会触发任何报错 —— 建议作为任务 #19 的显式验收项逐条勾核，而不是依赖门禁绿灯。
 
 ---
 
-*本报告由 qa-engineer 独立出具。所有门禁数据均为实际执行输出，所有代码问题均已标注 `文件:行号` 可复核。*
+## 附录：初审发现问题的处置轨迹
+
+初审（21:25–21:34，基于 225 用例时的代码）共提出 14 项。复审逐项复核结果：
+
+| 初审编号 | 问题 | 复审状态 |
+| --- | --- | --- |
+| P0-1 | 环境变量开关是死代码，4 处消费方全部绕过 | ⚠️ **部分修复** —— 3 处已接线，`useStore` 仍未接（→ 现 P1-1） |
+| P0-2 | `supabaseDataSource.ts:196` `auth.data.user?.id` 双重 `.data`，`createListing` 必崩 | ✅ **已修复** —— 改为 `auth?.user?.id` |
+| P0-3 | SDK 未安装 + 无 `package-lock.json`，`npm ci` 必失败 | ✅ **已修复** —— 均已就位，且装包后 tsc 仍 0 error |
+| P0-4 | `hydrate()` 无调用点 | ⚠️ **部分修复** —— 已入接口+实现+测试，仍无生产调用（→ 现 P1-2） |
+| P1-5 | `seller_id` 兜底 `'u_me'` 与 uuid + RLS 冲突 | ✅ **已修复** —— 未登录时抛可读错误 |
+| P1-6 | DataSource 缺写操作（消息/收藏） | ❌ **未修复**（→ 现 P1-4） |
+| P1-7 | 测试文件不参与类型检查 | ❌ **未修复**（→ 现 P2-4） |
+| P2-8a | 搜索只匹配 title（mock 匹配 title+description） | ❌ **未修复**（→ 现 P2-6） |
+| P2-8b | Supabase 侧不做过期惰性结算 | ✅ **已修复** —— `mapListing` 已按 mock 同口径结算 |
+| P2-8c | `getFavorites` 只查 `cache.listings` | ❌ **未修复**（→ 现 P2-5） |
+| P2-9 | `vercel.json` rewrites 因 `working-directory: dist` 失效 | ✅ **已修复** —— 构建后写入 `dist/vercel.json` |
+| P2-10 | `app.config.js` 的 `extra` 层级错误 | ✅ **已修复** —— 改到顶层并补注释 |
+| P3-11 | `.env.example` 含真实 project ref | ❌ **未修复**（→ 现 P3-7） |
+| P3-13 | `listings.views` 未映射 | ✅ **已修复** —— `mapListing` 已含 `views` |
+| P3-14 | 续期逻辑与 Edge Function 重复 | ✅ **已修复** —— 改为走 Edge Function 并有测试 |
+
+**处置率：9 项已修复、2 项部分修复、4 项未修复（1 项为初审后新识别的 P1-3）。**
+
+---
+
+*本报告由 qa-engineer 独立出具。所有门禁数据均为实际执行输出，所有代码问题均标注 `文件:行号` 可复核。*

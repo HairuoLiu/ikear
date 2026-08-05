@@ -365,3 +365,91 @@ and (
 剩余项按优先级：R2-2（本地种子数据已失效，影响所有人自测）> R2-3 / R2-4
 （两条产品行为在 Supabase 模式下已断，需要 PM/lead 拍板）> R2-5 > R2-6 > R2-7。
 其中 R2-3、R2-4 跨前后端，建议由 lead 统一指派，不要两边各改一半。
+
+---
+
+## 第三轮 — 状态核对（2026-08-04，platform-dev）
+
+对第二轮提出的项做文件级回归核对（只读，未改动非自有文件）：
+
+| 项 | 归属 | 状态 | 证据 |
+| --- | --- | --- | --- |
+| R2-2 seed.sql 资料静默失效 | backend-dev | **已修** | `seed.sql:93` 已改 `on conflict (id) do update set`（列出 email/nickname/avatar_url/city/district/rating/sold_count/created_at），`seed.sql:66-68` 注释同步说明触发器的来由。本地 reset 后卖家资料可落库。✅ |
+| R2-5 conversation_id is null 短路 | backend-dev | **未修** | `0002:193` 仍是 `conversation_id is null or exists(...)`，带着 null 的 insert 仍跳过参与者校验。`MINOR`，当前 UI 触发不到，但 PostgREST 公开端点可 curl。 |
+| R2-6 4 个新触发器函数缺 search_path | backend-dev | **未修** | `guard_profile_privileged_columns`(0003:65-67)、`guard_listing_privileged_columns`(0003:124)、`guard_conversation_identity`(0002:152)、`guard_message_immutability`(0002:213) 均只在 `language plpgsql` 后直接 `as $$`，无 `set search_path`。无实际提权风险，但 `db lint` 会新增 4 条 `function_search_path_mutable` 告警。建议补 `set search_path = public, pg_temp`，与 0002 既有口径一致。 |
+| R2-3 续期赠 24h 曝光无服务端路径 | lead/PM 决策 | **未修（待拍板）** | `functions/refresh-listing/index.ts:127` 仍只写 `{ expires_at, status }`，不发 `boosted_until`。客户端侧 `expiry.ts:66` 写 `boostedUntil` 已被 0003 拒。两条路都断。等 lead 决定「服务端补发 `boosted_until = now()+24h`」还是改产品契约。 |
+| R2-4 降价重上架产出隐身商品 | mobile-dev + lead | **未修（待指派）** | `useStore.ts:336-348` 的 `discountRelist` 仍一步写 `expiresAt`+`status`，未改走 `refresh-listing`。等前/后端统一路径后再改。 |
+| R2-7 increment_listing_views 无节流 | backend-dev | **未修（记录）** | `0003:180-198` 维持现状，NIT 级，范围外。 |
+| R2-8 0003 与前端登录同批次上线 | lead | **约束成立** | 见 #19 任务；mobile-dev 的登录接入（BLOCKER-2）未关闭前，0003 不可单独部署。 |
+
+结论：第二轮提出的 MAJOR 里，只有 R2-2（本地自测阻塞）已被 backend-dev 修复；R2-3 / R2-4（跨前后端产品行为断裂）仍待 lead 拍板与统一指派；R2-5 / R2-6 是低危但应顺手清掉的 MINOR（lint 干净度）。平台侧自有配置（C 节）全部到位、验证通过，无新增待办。
+
+---
+
+## 第四轮 — mobile-dev 第一轮修复核对（2026-08-04，platform-dev）
+
+mobile-dev 报告第一轮清单已修完（tsc 通过、248/248，新增 23 例）。逐项文件级复核（只读，未改非自有文件）：
+
+### 已确认修复（代码实测）
+- **BLOCKER-1** `auth.data.user?.id` → `supabaseDataSource.ts:228` 已为 `input.sellerId ?? auth?.user?.id`，并新增未登录可读错误（顺带闭环 **MAJOR-5** 的 `'u_me'` 兜底）。✅
+- **MAJOR-4** `getListing` → `supabaseDataSource.ts:213` 已改 `.maybeSingle()`，与 `Promise<Listing|null>` 契约一致。✅
+- **MAJOR-3** RN storage → `lib/supabase.ts:28-35` 用动态 `import('@react-native-async-storage/async-storage')` + 取不到回落 SDK 默认（Web=localStorage），`detectSessionInUrl:false`（`:53`）。注释写清「顶层 import 会进 node 单测模块图打挂 `npm test`」——理由成立，采纳。✅
+- **MAJOR-7** 业务常量/绕 Edge Function → `refreshListing`（`supabaseDataSource.ts:257-285`）已改走 `client.functions.invoke('refresh-listing', ...)`，TTL=30 的前端拷贝消失；另 `getPublicProfile`（`:301-312`）走 `public_profiles` 视图（不含 email，符合 0003），`incrementListingViews`（`:291-295`）走 `increment_listing_views` RPC。✅
+- **MAJOR-8** 零覆盖 → `src/data/supabaseDataSource.test.ts` 已建（注入式 fake client + `__setSupabaseClient` 钩子，沿用 `__setFeedStorage` 约定，23 例），含 N+1 回归防护。✅
+- **MINOR-9** N+1 → `hydrate()`（`:155-172`）改为一次 `.in('conversation_id', convIds)` 后内存分组。✅
+
+### MAJOR-6 纠正（mobile-dev 对我建议的修正，采纳）
+我原建议「(a) 删 shim + 用官方 `SupabaseClient` 类型」。mobile-dev 指出：删除 shim 必须与 `npm i` **放在同一个 commit**，否则未安装依赖的机器 tsc 立即变红。我已核实：
+- `package.json:35` 确实硬依赖 `@supabase/supabase-js`；而当前 workspace 的 `node_modules/@supabase/supabase-js/package.json` **已存在**（应为跑 248 测试时 `npm install` 落下的），所以此刻在本机删 shim 不会红；
+- 但**全新 clone / CI 未 install 前**删 shim 必红。故 mobile-dev 的「删 shim 与装包同 commit」是正确流程约束，我已把这条加进给 lead 的建议（见 C 节 + 下方）。
+- 「shim 把整个 SDK 变 `any`、让 BLOCKER-1 溜过 tsc」这点 mobile-dev 完全认同，方向不变，只是修复要连带装包。
+
+### BLOCKER-2 部分闭环（机制就位，触发点留 #19）
+`hydrate()` 函数本身已加（`:132-173`，含 N+1 修复），且 `DataSource` 接口加了可选 `hydrate?()`、`dataSource.hydrate?.()` 不破分层。但 **App.tsx 的实际调用 + 真正的 `supabase.auth` 登录仍属任务 #19**（当前 login 还是 mock，调了只会走「未登录→清缓存」分支）。故 BLOCKER-2 记为「已 mitigated，未 closed」，等 #19 收口。
+
+### R2-4 仍开（跨前后端，待 lead 拍板）
+`useStore.ts:336-348` 的 `discountRelist` 仍一步写 `expiresAt: ttlFrom(t)` + `status:'active'`（本地 store 层）。Supabase 模式要经 `refresh-listing` 拿合法 `expires_at` 才不产隐身商品——但整条路径依赖 R2-3 的 lead 决策，故保持 open，与 R2-3 一并指派。
+
+### 第四轮结论
+第一轮 BLOCKER-1 / MAJOR-3/4/7/8 / MINOR-9 均已真实落地并附回归测试；MAJOR-5 顺带闭环；MAJOR-6 处理须带装包同 commit（已采纳纠正）；BLOCKER-2 机制就位、触发点待 #19。剩余 open：BLOCKER-2 收口、R2-4（随 R2-3）。平台侧无新增待办。
+
+---
+
+## 第五轮 — backend-dev 复审项闭环 + CI 门禁决定（2026-08-04，platform-dev）
+
+backend-dev 对照第三轮每条结论落地，并自纠一处服务端放行缺口（记为 B15）。逐项复核（只读 + 据委派编辑 1 个 CI 文件）：
+
+### R2-2 — 实为第一轮已修，无矛盾
+backend-dev 指出 `seed.sql:93` 的 `on conflict (id) do update set`（八列全覆）在第一轮就已改，我第三轮复核看到的是改动后的正确状态，非误报。seed 内已加注释说明「建档触发器会让 do-nothing upsert 静默失效」的隐蔽耦合。确认闭环。✅
+
+### R2-5 — 已修（0004_message_channel_hardening.sql）
+`messages.conversation_id` 收为 NOT NULL（带前置 orphan 计数检查，有脏数据显式报错告知运维）；INSERT 策略去掉 `conversation_id is null or exists(...)` 分支，必须带「自己参与且对方也在其中」的会话。NOT NULL（必须填）+ 策略（填的是对的）两层防御，原 R2-5 的骚扰旁路两侧都堵。✅
+
+### R2-6 — 已修（0004）
+4 个 guard 全部 `set search_path = public, pg_temp`：
+- 0002 两个 guard（`guard_conversation_identity` / `guard_message_immutability`）用 `create or replace` 重建函数体（同时补 B15 放行分支）；
+- 0003 两个 guard（`guard_profile_privileged_columns` / `guard_listing_privileged_columns`）用 `alter function ... set search_path` **仅补 search_path、不重建函数体**——避免同一函数体在两处 migration 各写一遍、日后改一处漏一处。这个取舍正确，采纳。✅
+
+### R2-7 — NIT，按约定不改
+方案写在 0004 末尾注释（独立表 `listing_view_log` + 按小时唯一键去重，超范围单独排期）。✅
+
+### B15（backend-dev 自纠）— 修正了我 R2-1 的结论
+核查发现：0003 的 profile/listing guard 已有 `if current_user not in ('authenticated','anon') then return` 放行服务端，但 **0002 的 `guard_conversation_identity` / `guard_message_immutability` 漏了**——服务端若 UPDATE 这两个表会被「身份列/内容不可改」卡住。0004 用 `create or replace` 给两个 0002 guard 补上同样的放行分支。
+
+这**修正了我 R2-1「所有触发器不误伤服务端」的表述**：当时只有 0003 的两个 guard 满足，0002 的两个漏了。backend-dev 的纠正成立，已记录。放行 service_role 不构成安全回退（它本就绕过 RLS）。
+
+### CI 门禁决定（backend-dev 委派「按分工归你处理」）
+我编辑了 `ikear-backend/.github/workflows/ci.yml`：
+1. 移除 `supabase start`（应用 0001–0004 + seed）及 CLI 安装/版本步骤的 `continue-on-error` → 迁移/seed 执行失败现在会真正卡死 PR，正是 backend-dev 本地无 Docker 时所需的**实机验证门禁**（GitHub 托管的 `ubuntu-latest` 自带 Docker，无需额外配置）。
+2. `db lint` **暂保留** `continue-on-error`：`public_profiles` 视图按 R2-0 故意保留 `security_definer_view`，会让 lint 以 error 级别报错；待 backend-dev 在 `supabase/config.toml` 的 `[db.lint].disabled_rules` 加入该规则后再收紧（已同步）。
+3. 修正我第一轮 B 节提的 `deno check` globstar bug：`supabase/functions/**/index.ts` → `*`（POSIX `sh` 不展开 `**`，否则漏检各 `functions/<name>/index.ts`）。
+4. 注：此文件属 backend-dev 仓库（非我原 task 列出的自有配置）。因 backend-dev 显式委派该 CI 决策给我，我据委派编辑；改动可逆（git），如需回退告知即可。
+
+### 第五轮结论（全队剩余 open，平台视角）
+1. **R2-3** 续期赠24h曝光无服务端路径 — 待 lead 拍板。
+2. **R2-4** discountRelist 隐身商品 — 随 R2-3 指派 mobile-dev。
+3. **BLOCKER-2** 收口 — 随 #19（登录接入）。
+4. backend-dev 待办：config.toml 加 `disabled_rules=["security_definer_view"]` 后可收紧 db lint 门禁。
+5. 流程项：删 shim 与 npm i 同 commit；补提交 package-lock.json（BLOCKER-C1 根治）。
+
+平台侧自有配置（app.config.js / 两个 workflow / package.json）全部到位；另已据委派编辑 backend CI。无其它新增待办。

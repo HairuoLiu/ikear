@@ -327,6 +327,14 @@ platform-dev 报的 `seed.sql:90 on conflict (id) do nothing` 导致种子资料
 
 结论一致、无需再改，但两人独立指向同一处说明这个耦合确实隐蔽：**给 `auth.users` 加建档触发器，会让所有针对 `profiles` 的 `do nothing` upsert 静默失效**。已在 seed 里就地写了注释说明因果，避免后人把它改回 `do nothing`。
 
+### B15 · MINOR（已修）— 让 0002 的两个 guard 放行服务端角色
+
+platform-dev 复审要求确认「触发器不误伤服务端」。核查发现 0003 的 `guard_profile_privileged_columns` / `guard_listing_privileged_columns` 已经写了 `if current_user not in ('authenticated','anon') then return; end if;` 放行 `service_role` / `postgres` / `pg_cron` / `SECURITY DEFINER` 属主，但 0002 的 `guard_conversation_identity` / `guard_message_immutability` 漏了。后果：若服务端（未来的管理后台、数据修复脚本）对 `conversations` / `messages` 做 UPDATE，会卡在「身份列不可改 / 内容不可改」上。
+
+`0004` 第 3 节用 `create or replace function` 给这两个 0002 guard 补上同样的放行分支，与 0003 保持一致。放行 `service_role` **不构成安全回退**——它本就绕过 RLS、能直接改任意列，触发器只约束 `authenticated` / `anon` 客户端路径。
+
+这条是平台-dev「确认不误伤服务端」要求的落地，不是新漏洞；之前只是靠「目前服务端不 UPDATE 这些表」侥幸没触发。
+
 ### B6 · 做得对的地方
 
 - 所有表都 `enable row level security`，且 select/insert/update/delete 分开写，没有偷懒用 `for all`（`favorites` 那处的 `for all` 是合理的，条件完全对称）；
@@ -347,7 +355,8 @@ platform-dev 报的 `seed.sql:90 on conflict (id) do nothing` 导致种子资料
 |---|---|
 | `ikear-backend/supabase/migrations/0002_security_hardening.sql` | **新增**。注册建档触发器、过期结算函数 + 公开可见性收紧、视图 `security_invoker`、conversations/messages RLS 收紧 + 两个不可变触发器、jsonb 表达式索引、helper 函数固定 `search_path` |
 | `ikear-backend/supabase/migrations/0003_privilege_hardening.sql` | **新增**（第二轮，响应 platform-dev 的交叉评审）。profiles 收紧为仅本人可读 + `public_profiles` 列白名单视图；profiles / listings 特权列的 BEFORE UPDATE 触发器；`increment_listing_views` RPC |
-| `ikear-backend/supabase/migrations/0004_message_channel_hardening.sql` | **新增**（第三轮，响应 platform-dev 复审）。`messages.conversation_id` 收为 NOT NULL + INSERT 策略去掉 null 旁路；4 个触发器函数补 `search_path` |
+| `ikear-backend/supabase/migrations/0004_message_channel_hardening.sql` | **新增**（第三轮，响应 platform-dev 复审）。`messages.conversation_id` 收为 NOT NULL + INSERT 策略去掉 null 旁路；0002 的两个 guard 补服务端放行分支；4 个触发器函数补 `search_path` |
+| `ikear-backend/supabase/config.toml` | **新增**。仓库脚手架漏了此文件——没有它 `supabase start`（CI 的 SQL 实机验证门禁）会在每个 PR 失败。补齐最小本地配置：`project_id` + `[db.lint].disabled_rules = ["security_definer_view"]`，既让门禁可跑，也按 R2-0 关闭对 `public_profiles` 的 definer 视图 lint（供平台-dev 放开 db lint 的 continue-on-error） |
 | `ikear-backend/supabase/seed.sql` | profiles 的 `on conflict do nothing` → `do update set`（配合新增的建档触发器，否则种子数据被吞） |
 | `ikear-backend/README.md` | 目录树补 0002/0003；RLS 策略表更新为三个 migration 合并后的最终态；补充「过期结算」「注册即建档」「前端对接约定」「视图与 RLS 的关系」「会话不开放物理删除」等节 |
 
@@ -374,7 +383,9 @@ deno check supabase/functions/refresh-listing/index.ts
 8. 用 `demo@ikear.dev` 登录，`update profiles set rating = 5.0, sold_count = 999 where id = auth.uid()` → 语句成功但值不变（静默钉回，验证 B10）；
 9. `select increment_listing_views('lst_seed_0001')` → `views` 从 143 变 144（验证 B11）；
 10. 用 `demo@ikear.dev` 登录，`insert into listings (..., expires_at, boosted_until, views) values (..., now() + interval '10 years', now() + interval '1 year', 9999)` → 插入成功，但 `expires_at` 被钉到 `now()+30d`、`boosted_until` 为 `null`、`views` 为 `0`（验证 B9 的 INSERT 分支）；
-11. 确认 seed 里 `lst_seed_0003` 的 `boosted_until`（3 天后）与 `views`（301）**没有**被清掉 —— seed 以 `postgres` 身份执行，应当走服务端角色的放行分支。这条是上面那些触发器最容易踩的回归点。
+11. 确认 seed 里 `lst_seed_0003` 的 `boosted_until`（3 天后）与 `views`（301）**没有**被清掉 —— seed 以 `postgres` 身份执行，应当走服务端角色的放行分支。这条是上面那些触发器最容易踩的回归点；
+12. 用 `buyer@ikear.dev` 登录，`insert into messages (listing_id, sender_id, receiver_id, content) values (...)` **不带** `conversation_id` → 应当被 NOT NULL 拒绝；带上一个自己不参与的会话 id → 应当被 RLS 拒绝（验证 B12）；
+13. `supabase db lint` 的 `function_search_path_mutable` 应当为 0 条（验证 B13）。
 
 ## 六、第二轮补充（响应 platform-dev 交叉评审）
 
@@ -392,3 +403,21 @@ platform-dev 提出的 3 个 MAJOR 与我的第一轮结论对照：
 | CI 全量 `continue-on-error`、`**` 不递归 | 认同，但不属于我的改动范围，见上文 B5 节末尾 |
 
 **这一轮暴露出我第一轮自查的一个方法论缺口**：我把「最小权限」等同于「RLS 策略写对」，而 RLS 只能表达行级约束。`profiles.email`（谁能读这一列）和 `listings.expires_at`（谁能写这一列）都是**列级**问题，RLS 结构上就表达不了，必须靠列白名单视图、列级 GRANT 或触发器补。以后审 Supabase schema 应当固定问两遍：**这一行谁能碰**（RLS），**这一行里的每一列谁能碰**（GRANT / 视图 / 触发器）。
+
+## 七、第三轮补充（响应 platform-dev 对 0002/0003 的复审）
+
+| platform-dev 提出 | 我的处理 |
+|---|---|
+| R2-2 seed.sql 被建档触发器架空 | **第一轮已修**，见 B14。当前 `seed.sql:93` 已是 `do update set`，复审看的是旧行号 |
+| R2-5 `conversation_id is null` 短路参与者校验 | **确认，已修**（B12，0004）。这是我在 0002 里自己写进去的 |
+| R2-6 4 个触发器函数缺 `search_path` | 确认，已修（B13，0004） |
+| R2-7 `increment_listing_views` 无节流 | 同意是 NIT，**本轮不改**。保持授权 anon 是有意的产品选择（未登录浏览占大头，只统计登录用户会显著低估）。真要可信需按 `(listing_id, 访问者指纹, 小时窗)` 去重，得单开一张 log 表 + 清理策略，已把具体方案写在 `0004` 末尾注释里留给排期 |
+| security_invoker 判据 / 触发器不误伤服务端 | platform-dev 已复核确认，无分歧 |
+
+**第二个方法论教训，比第一个更值得记**：B12 不是 0001 遗留的，是**我在修复 B3 时自己引入的**。当时为了兼容 `0001:140` 那句「可空，兼容早期未归档到会话的历史消息」，顺手加了 `conversation_id is null or ...`，而布尔短路让整段参与者校验失效 —— 我修了一半的洞，却以为修完了。
+
+两点提炼：
+
+1. **安全条件里出现 `or`、`is null`、`coalesce` 这类"宽松分支"时，必须单独问一句「走这一支的时候，剩下的校验还跑不跑」。** 短路求值让「多加一个兼容分支」在语义上等价于「给整条校验开一个后门」。
+2. **不要为注释里声称的历史包袱买单，先去确认它是否真的存在。** `0001` 是初始 migration，它"兼容"的历史数据从来没有过。这个口子从写下的第一天起就只有代价、没有收益。
+

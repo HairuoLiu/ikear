@@ -268,3 +268,17 @@ seller_id: input.sellerId ?? auth.data.user?.id ?? 'u_me'   // ← auth.data 是
 4. **M-8**：`npm i @supabase/supabase-js` 与删除 `src/types/supabase-js.d.ts` 必须放在**同一个 commit**。⚠️ 纠正 platform-dev 的建议：该包目前**并未安装**在 `node_modules`（只写在 `package.json:34`），此刻单独删 shim 会让 `tsc --noEmit` 立刻变红。
 5. **B-4**：上线前收紧 messages/conversations 的列级 UPDATE 权限（0003 只处理了 profiles/listings），当前聊天记录仍可被发送方事后篡改。
 6. **X-6**：`useStore.discountRelist` 接后端时要拆成 `updateListing` + `refreshListing` 两步，不能直接设 `expiresAt`。
+
+---
+
+## 六、第三轮复核（platform-dev，R2-3/4/8 + BLOCKER-1/2 + MAJOR-6）回应
+
+| 项 | 状态 | 说明 |
+| --- | --- | --- |
+| **BLOCKER-1** `auth.data.user?.id` 崩溃 | ✅ 已修（前一轮） | `supabaseDataSource.ts:227-231`：`const { data: auth } = await client.auth.getUser(); const sellerId = input.sellerId ?? auth?.user?.id;` 未登录直接抛可读错误。platform-dev 独立复核也命中同一处，已在 F-2 锁死并加回归测试。 |
+| **BLOCKER-2** `hydrate` 未调用 / 无登录 | 🟡 半修，剩余归 #19 | 已做：把 `hydrate?()` 加进 `DataSource` 接口并挂到实现（F-13），UI 从此可写 `dataSource.hydrate?.()` 而不破分层。**未做**：`App.tsx` 里的实际调用点，因为它依赖真实登录 `supabase.auth.signInWithPassword`，而当前 `useStore.login` 是「任意邮箱密码都过」的 mock——此刻调 hydrate 只会进「未登录→清空缓存」分支，没有可观测收益。根因（auth 未接入）正是 #19。 |
+| **R2-8** 0003 与 anon 客户端耦合 | ✅ 认同，捆 #19 | 0003 把 `profiles` 收成 `id = auth.uid()`；而 BLOCKER-2 未关闭前客户端恒为 anon，于是 `hydrate` 读自己那句 `.eq('id', uid)` 恒返回 0 行 → 「我的」页空白。两者必须同一批次（#19）上线，单独发 0003 会直接打挂该页。 |
+| **MAJOR-6** 类型 shim 把 SDK 变 `any` | 🟡 未删，刻意 | `src/types/supabase-js.d.ts` 仍在。⚠️ 纠正「直接删 shim」：经核实 `@supabase/supabase-js` **没装在 node_modules**（仅 `package.json:34` 写了硬依赖）。此刻删 shim 会让 `tsc` 解析不到模块而变红。正确顺序：`npm i @supabase/supabase-js` + 删 shim 放进**同一个 commit**（#19）。 |
+| **R2-3** 刷新赠 24h 曝光 | ⏸ 等 PM/lead 拍板 | 客户端侧已不写 `boosted_until`（F-15 提前抛错）。但 `refresh-listing` Edge Function（backend-dev 的 `index.ts:127`）也只发 `expires_at`+`status`、不发 `boosted_until`。两条路都断。要么服务端补发 `boosted_until = now()+24h`，要么正式废弃该规则并改掉 `lib/expiry.refresh()` 与 `ProfileScreen.tsx:325` 文案。 |
+| **R2-4** 降价重上架隐身 | ⏸ 等 #19 指派后改 | `useStore.ts:336-348` 的 `discountRelist` 现一步写 `expiresAt`+`status`，带 `expiresAt` 会 42501、去掉则过期商品对买家隐身。**已跟踪**（X-6）：接后端时必须拆成 `updateListing({price,discount,status})` + `refreshListing(id)` 两步。属我方改动范围，等 lead 把 R2-3/R2-4 统一指派后一并改。 |
+
