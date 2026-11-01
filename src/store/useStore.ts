@@ -15,12 +15,17 @@ import {
   Conversation,
   CreateConversationInput,
   Listing,
+  ListingMode,
+  AIRecognitionMeta,
+  TrustProfile,
   Message,
   SendMessageInput,
   User,
 } from '../data/types';
 import { DAY_MS, TTL_DAYS, refresh } from '../lib/expiry';
 import { MAX_PHOTOS, canPublish } from '../lib/listingRules';
+import { getTrustProfile } from '../lib/aiEstimate';
+import type { SupportedLanguage } from '../lib/i18n';
 
 const STATE_KEY = 'ikear.state.v1';
 
@@ -45,6 +50,9 @@ export interface DraftListing {
   district?: string;
   createdAt: string;
   updatedAt: string;
+  listingMode?: ListingMode;
+  aiMeta?: AIRecognitionMeta;
+  sellerTrust?: TrustProfile;
 }
 
 export type SortMode = 'near' | 'new' | 'price';
@@ -71,6 +79,8 @@ interface StoreState {
   location: AppLocation;
   sort: SortMode;
   biometricEnabled: boolean;
+  language: SupportedLanguage;
+  setLanguage: (lang: SupportedLanguage) => void;
 
   // ---- 附加 state（M1 筛选 / M3 消息，非契约但已在用）----
   messages: Message[];
@@ -205,6 +215,12 @@ export const useStore = create<StoreState>((set, get) => {
     location: {},
     sort: 'new',
     biometricEnabled: false,
+    language: 'zh-CN',
+
+    setLanguage(language) {
+      set({ language });
+      persist();
+    },
 
     messages: MESSAGES,
     filters: defaultFilters,
@@ -361,6 +377,9 @@ export const useStore = create<StoreState>((set, get) => {
         status: 'active',
         type: 'secondhand',
         views: 0,
+        listingMode: d.listingMode || (d.aiMeta?.isReferencePhoto ? 'no_photo_chat' : 'ai_photo'),
+        aiMeta: d.aiMeta,
+        sellerTrust: getTrustProfile(seller?.rating ?? 4.9, seller?.soldCount ?? 12, true),
         // 旧字段镜像，保持向后兼容（canonical 字段已在上文给出）
         images: photos,
         seller_id: sellerId,
@@ -534,7 +553,7 @@ export const useStore = create<StoreState>((set, get) => {
         const raw = await AsyncStorage.getItem(STATE_KEY);
         if (!raw) return;
         const saved = JSON.parse(raw) as Partial<
-          Pick<StoreState, 'favorites' | 'biometricEnabled' | 'location' | 'sort' | 'drafts'>
+          Pick<StoreState, 'favorites' | 'biometricEnabled' | 'location' | 'sort' | 'drafts' | 'language'>
         >;
         set({
           favorites: Array.isArray(saved.favorites) ? saved.favorites : [],
@@ -542,6 +561,7 @@ export const useStore = create<StoreState>((set, get) => {
           location: saved.location ?? {},
           sort: saved.sort ?? 'new',
           drafts: saved.drafts ?? null,
+          language: saved.language ?? 'zh-CN',
         });
       } catch {
         /* 读档失败时保持默认值 */

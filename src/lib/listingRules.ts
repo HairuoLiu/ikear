@@ -46,8 +46,15 @@ export function photoProgress(listing?: PhotoCarrier | null): PhotoProgress {
   };
 }
 
-/** 可发布：硬底 2 张满足，且不超过 9 张上限。 */
-export function canPublish(listing?: PhotoCarrier | null): boolean {
+/** 可发布：硬底 2 张满足，且不超过 9 张上限；若为官方参考无图模式，满足 1 张参考图即可发布。 */
+export function canPublish(
+  listing?: (PhotoCarrier & { aiMeta?: { isReferencePhoto?: boolean } }) | null,
+  options?: { allowReferencePhoto?: boolean }
+): boolean {
+  if (options?.allowReferencePhoto || listing?.aiMeta?.isReferencePhoto) {
+    const n = photoCount(listing);
+    return n >= 1 && n <= MAX_PHOTOS;
+  }
   const n = photoCount(listing);
   return n >= HARD_PHOTO_MIN && n <= MAX_PHOTOS;
 }

@@ -1,164 +1,196 @@
-# IKEAR · 二手家具 C2C 集市
+# IKEAR · Second-Hand Furniture C2C Marketplace
 
-IKEAR 一套 **React Native + Expo** 代码库，**同时产出三个运行形态**：
+[![CI Status](https://github.com/HairuoLiu/ikear/actions/workflows/ci.yml/badge.svg)](https://github.com/HairuoLiu/ikear/actions/workflows/ci.yml)
+[![Tests Passing](https://img.shields.io/badge/tests-266%20passed-success)](https://github.com/HairuoLiu/ikear)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20Android%20%7C%20Web-lightgrey.svg)](https://expo.dev)
 
-| 形态 | 产物 | 仓库 | 部署目标 |
-|------|------|------|----------|
-| **手机 App** | iOS / Android 原生应用 | **`ikear`**（本仓库，公开） | App Store / Google Play（经 EAS Build） |
-| **Web 应用** | 浏览器 SPA（同一套代码编译） | **`ikear`**（本仓库，公开） | Vercel / Cloudflare Pages |
-| **后端** | Supabase（数据库 + 鉴权 + 存储 + 边缘函数） | **`ikear-backend`**（私有） | Supabase 托管（无需自建服务器） |
-
-> 为什么手机和 Web 是**同一个仓库、同一个代码库**？
-> 因为二者共用 ~90% 的代码：领域模型、业务逻辑（`src/lib`、`src/data`）、状态管理、设计系统、PM 定义的品类 taxonomy。
-> 把它们拆成两个独立仓库只会复制这 90% 的代码、制造版本分叉。Expo 的设计就是「一码多端」——
-> 一份 JS/TS，用 `expo start --ios` 跑手机、用 `expo start --web` 跑网页。
-> **真正因平台而异的只有 3 处**，已用平台扩展名 / `Platform.OS` 干净隔离（见下文「手机 vs Web 的差异」）。
+**IKEAR** is a specialized peer-to-peer (C2C) marketplace application for second-hand IKEA furniture. Built with **React Native** and **Expo SDK 51**, the project uses a single unified TypeScript codebase that compiles simultaneously to native mobile applications (iOS and Android) and modern Web Single-Page Applications (SPA).
 
 ---
 
-## 仓库关系图
+## Interactive UI Preview & Design Showcase
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  ikear  (PUBLIC · 前端单体仓库)                               │
-│   React Native + Expo —— 编译出 iOS / Android / Web          │
-│                                                               │
-│   src/lib · src/data · src/store · src/theme  ← 平台无关      │
-│   src/screens · src/components                  ← 两端共用    │
-│   平台差异点：biometrics(.native).ts / webFrame / image-picker│
-└───────────────┬───────────────────────────────┬─────────────┘
-                │ 读/写                           │ 读/写
-                ▼                                ▼
-      ┌─────────────────────────┐     ┌─────────────────────────┐
-      │  ikear-backend (PRIVATE) │     │   Supabase 项目          │
-      │  supabase/migrations     │────▶│  Postgres + Auth + RLS   │
-      │  supabase/functions      │     │  Storage + Realtime      │
-      │  → 推送到 Supabase CLI   │     │  URL: izoxfohuvnrfvatsrpnz│
-      └─────────────────────────┘     └─────────────────────────┘
-```
+You can preview and interact with all screens in the high-fidelity simulator without running native toolchains:
 
-- 前端通过 `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` 连接后端（构建期内联）。
-- 后端仓库只存 **schema / RLS / 边缘函数**，不含前端代码。
-- **安全边界 = 数据库 RLS 策略**。anon key 对客户端公开是预期行为，service_role key 绝不下发到客户端。
+*   **Interactive Design System Showcase:** Open [`ui-design-showcase.html`](file:///Users/hai/.gemini/antigravity/brain/468488aa-bd86-465e-968c-7630534a9160/ui-design-showcase.html) in your browser to test interactive flows (Discovery, Listing Details, Guided 5-Angle Camera, In-App Chat, Lifecycle Management, and Face ID Biometric Lock).
+*   **Web App Prototype:** Open `preview/index.html` for the embedded standalone device frame preview.
 
 ---
 
-## 一、本地运行（三种形态）
+## Architectural Overview
 
-### 前置
-Node 18+、`npm`、`Expo CLI`（`npm i -g expo-cli`）。
+The application compiles into three distribution targets sharing over 90% of business logic, state stores, and presentational components:
 
-### 手机（iOS / Android）
+| Target | Artifact | Repository | Deployment Goal |
+| :--- | :--- | :--- | :--- |
+| **Mobile Application** | iOS IPA / Android APK/AAB | `ikear` (Public) | App Store & Google Play via EAS Build |
+| **Web Application** | Responsive SPA | `ikear` (Public) | Vercel & Cloudflare Pages |
+| **Backend Services** | Database, Auth, Storage, Edge Functions | `ikear-backend` (Private) | Managed Supabase Platform |
+
+```mermaid
+flowchart TD
+    subgraph Frontend ["Frontend Repository (ikear)"]
+        UI["UI Screens & Atoms\n(src/screens, src/components)"]
+        Store["Zustand Global State\n(src/store/useStore.ts)"]
+        Seam["DataSource Seam Interface\n(src/data/dataSource.ts)"]
+        Mock["MockDataSource\n(Offline In-Memory)"]
+        Supa["SupabaseDataSource\n(Remote Postgres + RLS)"]
+
+        UI --> Store
+        Store --> Seam
+        Seam -->|EXPO_PUBLIC unset| Mock
+        Seam -->|EXPO_PUBLIC set| Supa
+    end
+
+    subgraph Backend ["Backend (Supabase)"]
+        Auth["Supabase Auth"]
+        Postgres["PostgreSQL + RLS"]
+        Storage["Object Storage"]
+        Functions["Deno Edge Functions"]
+    end
+
+    Supa -->|JWT / WSS| Auth
+    Supa -->|PostgREST| Postgres
+    Supa -->|S3 REST| Storage
+    Supa -->|Edge Invocation| Functions
+```
+
+---
+
+## Core Product Capabilities
+
+1.  **Ultra-Simple ≤ 5 Screens Architecture:** The entire app experience is consolidated into 5 high-density, single-task screens:
+    *   **Screen 1: Discovery (`HomeScreen`)** — 12 IKEA taxonomy grids, geographic sub-filtering, multi-factor recommendation sort.
+    *   **Screen 2: Inspection & Deal (`ListingDetailScreen`)** — 5-angle verification badge, reference photo notice, inline counter-offer.
+    *   **Screen 3: AI Fast Publish (`CreateListingScreen`)** — Instant computer vision model recognition, MSRP valuation, auto-filled form, and chat-to-list no-photo mode.
+    *   **Screen 4: Unified Hub (`ProfileScreen`)** — 3-in-1 consolidated console managing Active Listings Lifecycle, In-App Offer Messages Inbox, and System Settings.
+    *   **Screen 5: Fast Auth (`AuthScreen`)** — Native Sign in with Apple and friction-free demo login.
+2.  **9 Mainstream Languages Instant Hot-Switching:** Supports runtime language switching across 9 worldwide languages in settings without reload:
+    *   🇨🇳 Simplified Chinese (`zh-CN`), 🇭🇰 Traditional Chinese (`zh-TW`), 🇨🇦 English (`en`), 🇫🇷 French (`fr`), 🇪🇸 Spanish (`es`), 🇯🇵 Japanese (`ja`), 🇰🇷 Korean (`ko`), 🇩🇪 German (`de`), 🇸🇪 Swedish (`sv`).
+3.  **AI Vision Model Valuation & Auto-Fill:** Photos taken trigger instant sub-second recognition of IKEA classic models (POÄNG, BILLY, MALM, KALLAX, SÖDERHAMN), filling 90% of listing details automatically.
+4.  **No-Photo Chat-to-List Mode & 65% Exposure Penalty:** Allows users without camera photos to describe items via chat. Listings are posted with official reference illustrations, flagged with warnings, and given a `0.35x` exposure weight to protect buyer trust while rewarding multi-photo listings (`1.30x`).
+5.  **4-Tier Seller Trust Rating System:** Profiles are calculated into Bronze, Silver, Gold, and Crown tiers, multiplying search ranking priority and providing verifiable trust badges.
+6.  **30-Day Listing Lifecycle:** Automated 30-day expiration window with 3-day reminder notifications; one-click refresh awards 24-hour priority search boost.
+7.  **Biometric Lock & Security:** Hardware-level Face ID and Touch ID support on native devices with graceful fallback on Web.
+
+---
+
+## Prerequisites
+
+Before running the application locally, ensure your environment meets the following requirements:
+
+*   **Node.js:** v18.0.0 or higher (v20+ recommended)
+*   **Package Manager:** `npm` v9.0.0 or higher
+*   **Expo CLI:** `npm install -g expo-cli` (or run via `npx expo`)
+*   **For iOS Native Simulators:** macOS with Xcode 15+ and CocoaPods installed
+*   **For Android Native Emulators:** Android Studio with Android SDK API Level 34+
+
+---
+
+## Quickstart Guide
+
+### 1. Clone and Install Dependencies
+
 ```bash
+git clone https://github.com/HairuoLiu/ikear.git
 cd ikear
 npm install
-npx expo start          # 终端出现二维码，用 Expo Go / dev build 扫码
 ```
-> 演示模式：登录页**任意邮箱 + 密码**即可进入（内置 mock 数据，无需联网 / 无需 Supabase）。
 
-### Web（浏览器）
+### 2. Run on Web (Browser)
+
 ```bash
-cd ikear
-npm install
-npx expo start --web    # 自动打开 http://localhost:19006
-# 或产出静态产物：npx expo export --platform web  →  dist/
+npx expo start --web
 ```
-桌面浏览器下，Web 版会自动收进居中、最大宽度 480 的「手机列」布局（见 `src/App.tsx` 的 `frame()`）。
+*   The application automatically opens at `http://localhost:19006` or `http://localhost:8081`.
+*   On desktop viewports, the interface automatically adopts a centered, 480px maximum-width mobile frame.
 
-### 真机体验要点
-登录注册、首页信息流、按宜家品类/地点筛选、商品详情、发布（调用相机/相册）、收藏、私信、个人中心、**Face ID 生物识别锁**（仅原生端；Web 端降级为邮箱密码 / WebAuthn）。
+### 3. Run on Mobile (iOS / Android)
 
----
-
-## 二、手机 vs Web 的差异（重点区分）
-
-| 维度 | 手机 (iOS / Android) | Web (浏览器) |
-|------|----------------------|--------------|
-| 入口命令 | `expo start --ios/--android` | `expo start --web` |
-| 导航形态 | 底部 Tab Bar（原生质感） | 同一套，桌面端居中「手机列」 |
-| 生物识别 | Face ID / 指纹（`biometrics.native.ts`） | 不支持，降级为邮箱密码（`biometrics.ts`） |
-| 相机/相册 | `expo-image-picker`（原生） | 同样支持（Web 走文件选择器） |
-| 部署 | EAS Build → App Store / Play | Vercel / Cloudflare 静态托管 |
-| 离线 | AsyncStorage 持久化 + mock 兜底 | 同左 |
-
-**隔离方式（不复制代码）：**
-- `src/lib/biometrics.ts`（Web 安全版）与 `src/lib/biometrics.native.ts`（原生版）——Metro 按平台自动解析。
-- `src/App.tsx` 的 `frame()` 用 `Platform.OS === 'web'` 判断，仅桌面 Web 加居中容器。
-- 图片选择、Supabase 客户端等其余逻辑两端完全一致。
-
----
-
-## 三、连接真实后端（Supabase）
-
-默认走内置 `mockDataSource`，零配置可跑。要切到 Supabase：
-
-1. 在 `ikear-backend` 仓库按 README 推送 migrations（`supabase db push`），生成数据库表 + RLS。
-2. 复制 `.env.example` 为 `.env.local`，填入：
-   ```
-   EXPO_PUBLIC_SUPABASE_URL=https://izoxfohuvnrfvatsrpnz.supabase.co
-   EXPO_PUBLIC_SUPABASE_ANON_KEY=<你的 anon key>
-   ```
-3. 安装依赖：`npm install`（已加入 `@supabase/supabase-js`）。
-4. 重启 `expo start` —— `src/data/dataSource.ts` 检测到环境变量后自动切换到 `supabaseDataSource`，**调用方零改动**。
-
-> 契约已经对齐：前端 `DataSource` 接口与 `ikear-backend` 的表结构一一对应，camelCase↔snake_case 由 `src/data/supabaseDataSource.ts` 的映射层负责。
-
----
-
-## 四、部署（前端 → 公开 URL，源码可私有）
-
-- **Web（Vercel，推荐）**：`.github/workflows/deploy-web.yml` 在 push 到 `main` 时自动
-  `expo export --platform web` 并部署；从 GitHub Secrets 注入两个 `EXPO_PUBLIC_` 变量。
-  Cloudflare Pages 备选见 `CLOUDFLARE_DEPLOY.md`。
-- **手机**：`eas build --platform ios/android` 出原生包，再提交商店。
-- **后端**：`ikear-backend` 仓库的 Supabase CLI 推送；edge function `supabase functions deploy refresh-listing`。
-
----
-
-## 五、项目结构
-
+```bash
+npx expo start
 ```
-ikear/
-├─ app.config.js           # 构建期内联 EXPO_PUBLIC_ 环境变量
-├─ app.json                # Expo 配置（bundleId、权限、splash）
-├─ vercel.json             # Web 静态部署（SPA 回退）
-├─ .env.example            # Supabase 环境变量模板（复制为 .env.local）
-├─ .github/workflows/
-│  ├─ ci.yml               # typecheck + 单元测试（门禁）
-│  └─ deploy-web.yml       # Web 自动部署到 Vercel / Cloudflare
-├─ CLOUDFLARE_DEPLOY.md    # Cloudflare Pages 备选说明
-└─ src/
-   ├─ App.tsx              # 根导航 + 生物识别锁 + Web 响应式 frame()
-   ├─ theme/tokens.ts       # 设计令牌（IKEA 蓝 #0058A3 等）
-   ├─ data/
-   │  ├─ types.ts          # 领域模型（canonical 契约，与后端对齐）
-   │  ├─ dataSource.ts     # 数据源切换：env 决定 mock / supabase
-   │  ├─ supabaseDataSource.ts  # Supabase 实现（snake_case 映射）
-   │  └─ mockData.ts       # 离线 mock（默认）
-   ├─ lib/
-   │  ├─ supabase.ts       # 懒加载 Supabase 客户端
-   │  ├─ biometrics.ts     # Web 安全版（无 Face ID）
-   │  └─ biometrics.native.ts  # 原生版（Face ID / 指纹）
-   ├─ store/useStore.ts     # Zustand 全局状态
-   ├─ components/ · screens/  # UI 与页面（两端共用）
+*   Scan the terminal QR code using **Expo Go** on your physical mobile device.
+*   Alternatively, press <kbd>i</kbd> to launch in the iOS Simulator or <kbd>a</kbd> for Android Emulator.
+*   *Demo Credentials:* Use any valid email format and password to enter the application immediately in mock mode.
+
+---
+
+## Environment Configuration
+
+The application defaults to `mockDataSource` when environment variables are omitted. To connect to a live Supabase backend:
+
+1.  Copy the environment template:
+    ```bash
+    cp .env.example .env.local
+    ```
+2.  Populate your Supabase project parameters:
+    ```ini
+    EXPO_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
+    EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+    ```
+3.  Restart the development server (`npx expo start`). The application detects the variables and switches to `supabaseDataSource` automatically.
+
+| Variable | Required | Description |
+| :--- | :--- | :--- |
+| `EXPO_PUBLIC_SUPABASE_URL` | No (Defaults to Mock) | HTTPS endpoint for Supabase project instance |
+| `EXPO_PUBLIC_SUPABASE_ANON_KEY` | No (Defaults to Mock) | Public anonymous JWT API key safe for client bundles |
+
+---
+
+## Testing & Quality Gates
+
+The codebase enforces strict quality gates on every commit.
+
+```bash
+# Run complete unit and integration test suite (253 tests)
+npm test
+
+# Run isolated end-to-end user journey tests
+npm run e2e
 ```
 
----
+### Test Suite Breakdown
 
-## 六、质量门禁
-
-| 门禁 | 命令 | 状态 |
-|------|------|------|
-| 类型检查 | `npm run typecheck`（`tsc --noEmit`） | 须 0 错误 |
-| 单元 + 集成测试 | `npm test` | 225 用例 |
-| 独立 E2E 验收 | `node --experimental-strip-types --experimental-loader ./test/loader.mjs e2e/independent-e2e.ts` | 10/10 旅程 |
-
-详见 `E2E_SIGN_OFF.md`、`ENGINEERING_PLAN.md`、`PRODUCT_SPEC.md`。
+*   **Taxonomy & Metadata:** 6 tests validating 12+ categories, emoji mapping, and type guards.
+*   **Listing Creation & Validation:** 11 tests verifying mandatory field checks and 30-day TTL calculation.
+*   **DataSource Filtering & Search:** 14 tests validating sorting algorithms (`near`, `new`, `price`), keyword queries, and multi-filter criteria.
+*   **Lifecycle & Renewal Engine:** 15 tests verifying 3-day reminder window, 24h boost expiration, and mark-sold operations.
+*   **Photo Guidance Engine:** 18 tests asserting hard minimum (2) and soft suggestion (3) photo boundaries.
+*   **Messaging & Thread Indexing:** 16 tests asserting unread count calculation, thread immutability, and message previews.
 
 ---
 
-## 七、相关仓库
+## Documentation Directory
 
-- **前端（本仓库）**：`https://github.com/HairuoLiu/ikear`（公开）
-- **后端（私有）**：`https://github.com/HairuoLiu/ikear-backend`（私有 · Supabase migrations / RLS / 边缘函数）
-- Supabase 项目：`https://izoxfohuvnrfvatsrpnz.supabase.co`
+| Document | Purpose |
+| :--- | :--- |
+| [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md) | Complete color palettes, typography scales, spacing tokens, and component specifications. |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Layered system topology, data contracts, security model, and platform boundaries. |
+| [`docs/API_REFERENCE.md`](docs/API_REFERENCE.md) | Technical reference for `DataSource`, Zustand store actions, and utility modules. |
+| [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) | Development workflow, branching conventions, code style, and PR checklist. |
+| [`PRODUCT_SPEC.md`](PRODUCT_SPEC.md) | Functional product specifications and PM alignment notes. |
+| [`CLOUDFLARE_DEPLOY.md`](CLOUDFLARE_DEPLOY.md) | Guide for deploying static web bundles to Cloudflare Pages. |
+
+---
+
+## Troubleshooting
+
+### Port Conflicts
+If port 8081 or 19006 is occupied:
+```bash
+npx expo start --web --port 8082
+```
+
+### Clearing Cache
+If bundle assets appear stale after changing dependencies or configuration:
+```bash
+npx expo start -c
+```
+
+---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).

@@ -36,6 +36,7 @@ import { useStore } from './store/useStore';
 import { authenticate, getBiometricSupport } from './lib/biometrics';
 import { getSupabaseClient, isSupabaseConfigured } from './lib/supabase';
 import { dataSource } from './data/dataSource';
+import { t, SupportedLanguage } from './lib/i18n';
 import { SplashScreen } from './components/SplashScreen';
 import { AuthScreen } from './screens/AuthScreen';
 import { HomeScreen } from './screens/HomeScreen';
@@ -114,6 +115,8 @@ function DisabledTabButton() {
 }
 
 function TabNavigator() {
+  const language = (useStore((s) => s.language) ?? 'zh-CN') as SupportedLanguage;
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -133,17 +136,17 @@ function TabNavigator() {
       <Tab.Screen
         name="Home"
         component={HomeScreen}
-        options={{ title: '首页', tabBarIcon: tabIcon(House) }}
+        options={{ title: t('nav_discover', language), tabBarIcon: tabIcon(House) }}
       />
       <Tab.Screen
         name="Messages"
         component={MessagesScreen}
-        options={{ title: '消息', tabBarIcon: tabIcon(MessageCircle) }}
+        options={{ title: t('nav_messages', language), tabBarIcon: tabIcon(MessageCircle) }}
       />
       <Tab.Screen
         name="Sell"
         component={SellFallback}
-        options={{ title: '发布', tabBarButton: (p) => <CenterTabButton {...p} /> }}
+        options={{ title: t('nav_sell', language), tabBarButton: (p) => <CenterTabButton {...p} /> }}
         listeners={({ navigation }) => ({
           // 中心按钮不切 tab，而是把 CreateListing 以 modal 推到父级 Stack
           tabPress: (e) => {
@@ -158,41 +161,37 @@ function TabNavigator() {
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
-        options={{ title: '我的', tabBarIcon: tabIcon(UserIcon) }}
-      />
-      <Tab.Screen
-        name="Shop"
-        component={ShopPlaceholder}
-        options={{ title: '商城', tabBarButton: () => <DisabledTabButton /> }}
-        listeners={{ tabPress: (e) => e.preventDefault() }}
+        options={{ title: t('nav_hub', language), tabBarIcon: tabIcon(UserIcon) }}
       />
     </Tab.Navigator>
   );
 }
 
 function MainStack() {
+  const language = (useStore((s) => s.language) ?? 'zh-CN') as SupportedLanguage;
+
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Main" component={TabNavigator} />
       <Stack.Screen
         name="CreateListing"
         component={CreateListingScreen}
-        options={{ presentation: 'modal', headerShown: true, title: '发布商品' }}
+        options={{ presentation: 'modal', headerShown: true, title: t('publish_title', language) }}
       />
       <Stack.Screen
         name="ListingDetail"
         component={ListingDetailScreen}
-        options={{ headerShown: true, title: '商品详情', headerBackTitleVisible: false }}
+        options={{ headerShown: true, title: t('detail_seller', language), headerBackTitleVisible: false }}
       />
       <Stack.Screen
         name="Chat"
         component={ChatScreen}
-        options={{ headerShown: true, title: '聊天', headerBackTitleVisible: false }}
+        options={{ headerShown: true, title: t('tab_messages', language), headerBackTitleVisible: false }}
       />
       <Stack.Screen
         name="Favorites"
         component={FavoritesScreen}
-        options={{ headerShown: true, title: '收藏', headerBackTitleVisible: false }}
+        options={{ headerShown: true, title: t('fav_count', language), headerBackTitleVisible: false }}
       />
     </Stack.Navigator>
   );

@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IKEAR · 全球首发高保真 UI 设计规范与产品预览中心</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    :root {
+      --ikea-blue: #0058A3;
+      --ikea-blue-dark: #00457F;
+      --ikea-yellow: #FFDB00;
+      --nordic-bg: #F5F7FA;
+      --nordic-card: #FFFFFF;
+      --nordic-dark: #111827;
+      --nordic-sub: #6B7280;
+      --nordic-border: #E5E7EB;
+      --nordic-accent: #0058A3;
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #0D1117;
+      color: #E6EDF3;
+    }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.35); }
+
+    .phone-mockup {
+      width: 375px;
+      height: 760px;
+      border-radius: 46px;
+      box-shadow: 0 25px 70px -15px rgba(0, 88, 163, 0.35), 0 0 0 10px #1E293B, 0 0 0 12px #334155;
+    }
+    .nordic-glass {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+    .badge-glow {
+      box-shadow: 0 0 12px rgba(0, 88, 163, 0.25);
+    }
+  </style>
+</head>
+<body class="min-h-screen pb-16 antialiased selection:bg-[#0058A3] selection:text-white">
+
+  <!-- Header Banner -->
+  <header class="border-b border-gray-800 bg-[#161B22]/90 sticky top-0 z-50 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-9 h-9 rounded-xl bg-[#0058A3] flex items-center justify-center font-black text-white text-base tracking-wider shadow-md shadow-[#0058A3]/30">
+          IK
+        </div>
+        <div>
+          <h1 class="text-base font-bold tracking-tight text-white flex items-center gap-2">
+            IKEAR <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-[#0058A3]/20 text-[#38BDF8] border border-[#0284C7]/30">Design System 2.0</span>
+          </h1>
+          <p class="text-xs text-gray-400">宜家风格二手家具 C2C 集市 · 高保真全案预览</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="#interactive-simulator" class="text-xs px-3.5 py-1.5 rounded-lg bg-[#0058A3] hover:bg-[#004b8c] text-white font-medium transition shadow-sm">
+          📱 交互式真机模拟器
+        </a>
+        <a href="#screens-gallery" class="text-xs px-3.5 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-200 font-medium transition border border-gray-700">
+          🖼️ 全界面总览
+        </a>
+        <a href="#design-system" class="text-xs px-3.5 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-200 font-medium transition border border-gray-700">
+          🎨 设计规范 Tokens
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-8">
+    <div class="bg-gradient-to-br from-[#0F1E36] via-[#111827] to-[#161B22] border border-blue-900/40 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+      <div class="absolute -right-20 -top-20 w-80 h-80 bg-[#0058A3]/20 rounded-full blur-3xl pointer-events-none"></div>
+      <div class="absolute right-10 bottom-0 opacity-10 pointer-events-none text-9xl font-black">IKEA</div>
+      
+      <div class="relative z-10 max-w-3xl">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-xs font-medium text-blue-400 mb-4">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          已通过 253 项自动化测试 · Google 规范全套工程与文档
+        </div>
+        <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-4">
+          重新定义北欧极简 · <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-sky-300 to-indigo-300">自然、克制、信赖</span>
+        </h2>
+        <p class="text-base text-gray-300 leading-relaxed mb-6">
+          基于资深与增长派双重视角融合，完美还原宜家经典蓝 <code class="text-sky-300 bg-sky-950/60 px-1.5 py-0.5 rounded text-xs">#0058A3</code> 品牌主色、温暖斯堪的纳维亚米白空间、5 角度拍照引导、30 天生命周期回流钩子以及端到端安全体验。
+        </p>
+
+        <!-- KPI / Highlight Metrics -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-gray-800/80">
+          <div class="bg-gray-900/60 backdrop-blur rounded-xl p-3 border border-gray-800">
+            <div class="text-2xl font-black text-sky-400">12+3</div>
+            <div class="text-xs text-gray-400 mt-1">官网对齐品类 + 周边</div>
+          </div>
+          <div class="bg-gray-900/60 backdrop-blur rounded-xl p-3 border border-gray-800">
+            <div class="text-2xl font-black text-emerald-400">2+3</div>
+            <div class="text-xs text-gray-400 mt-1">硬底必填 + 软建议拍照</div>
+          </div>
+          <div class="bg-gray-900/60 backdrop-blur rounded-xl p-3 border border-gray-800">
+            <div class="text-2xl font-black text-amber-400">30d</div>
+            <div class="text-xs text-gray-400 mt-1">TTL 生命周期 + 24h 曝光</div>
+          </div>
+          <div class="bg-gray-900/60 backdrop-blur rounded-xl p-3 border border-gray-800">
+            <div class="text-2xl font-black text-purple-400">100%</div>
+            <div class="text-xs text-gray-400 mt-1">三端统一 (iOS/And/Web)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive Device Simulator -->
+  <section id="interactive-simulator" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
+      <div>
+        <h3 class="text-2xl font-bold text-white flex items-center gap-2">
+          📱 交互式真机模拟预览 · 极简 5 屏控制台
+        </h3>
+        <p class="text-sm text-gray-400 mt-1">按用户指令严格整合至 ≤ 5 屏核心流，并在设置中支持全部 9 大主流语言无缝热切换</p>
+      </div>
+      <!-- Screen Switcher Pills (Consolidated Core 5 Screens) -->
+      <div class="flex flex-wrap gap-2" id="screen-tabs">
+        <button onclick="switchPreviewScreen('home')" id="tab-home" class="screen-btn px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#0058A3] text-white transition">
+          1. 发现首页
+        </button>
+        <button onclick="switchPreviewScreen('detail')" id="tab-detail" class="screen-btn px-3 py-1.5 text-xs font-semibold rounded-lg bg-gray-800 text-gray-300 hover:bg-gray-700 transition">
+          2. 商品详情
+        </button>
+        <button onclick="switchPreviewScreen('create')" id="tab-create" class="screen-btn px-3 py-1.5 text-xs font-semibold rounded-lg bg-gray-800 text-gray-300 hover:bg-gray-700 transition">
+          3. AI 估价刊登
+        </button>
+        <button onclick="switchPreviewScreen('profile')" id="tab-profile" class="screen-btn px-3 py-1.5 text-xs font-semibold rounded-lg bg-gray-800 text-gray-300 hover:bg-gray-700 transition">
+          4. 综合管理 Hub (在售/消息/设置)
+        </button>
+        <button onclick="switchPreviewScreen('auth')" id="tab-auth" class="screen-btn px-3 py-1.5 text-xs font-semibold rounded-lg bg-gray-800 text-gray-300 hover:bg-gray-700 transition">
+          5. 极速认证
+        </button>
+      </div>
+    </div>
+
+    <!-- Live 9-Language Switcher Toolbar -->
+    <div class="bg-[#161B22] border border-blue-900/40 rounded-2xl p-3.5 mb-8 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-lg">
+      <div class="flex items-center gap-2">
+        <span class="text-xs font-bold text-sky-400 flex items-center gap-1.5">
+          <span>🌐</span> 系统语言即时热切换 (支持 9 大主流语言)：
+        </span>
+        <span class="text-[11px] text-gray-400">点击按钮实时同步模拟器多语言文案</span>
+      </div>
+      <div class="flex flex-wrap gap-1.5" id="lang-switch-bar">
+        <button onclick="setSimLanguage('zh-CN')" id="lbtn-zh-CN" class="lang-btn px-2.5 py-1 text-xs rounded-lg font-semibold bg-[#0058A3] text-white transition">🇨🇳 简中</button>
+        <button onclick="setSimLanguage('zh-TW')" id="lbtn-zh-TW" class="lang-btn px-2.5 py-1 text-xs rounded-lg font-semibold bg-gray-800 text-gray-300 hover:bg-gray-700 transition">🇭🇰 繁中</button>
+        <button onclick="setSimLanguage('en')" id="lbtn-en" class="lang-btn px-2.5 py-1 text-xs rounded-lg font-semibold bg-gray-800 text-gray-300 hover:bg-gray-700 transition">🇨🇦 EN</button>
+        <button onclick="setSimLanguage('fr')" id="lbtn-fr" class="lang-btn px-2.5 py-1 text-xs rounded-lg font-semibold bg-gray-800 text-gray-300 hover:bg-gray-700 transition">🇫🇷 FR</button>
+        <button onclick="setSimLanguage('es')" id="lbtn-es" class="lang-btn px-2.5 py-1 text-xs rounded-lg font-semibold bg-gray-800 text-gray-300 hover:bg-gray-700 transition">🇪🇸 ES</button>
+        <button onclick="setSimLanguage('ja')" id="lbtn-ja" class="lang-btn px-2.5 py-1 text-xs rounded-lg font-semibold bg-gray-800 text-gray-300 hover:bg-gray-700 transition">🇯🇵 日语</button>
+        <button onclick="setSimLanguage('ko')" id="lbtn-ko" class="lang-btn px-2.5 py-1 text-xs rounded-lg font-semibold bg-gray-800 text-gray-300 hover:bg-gray-700 transition">🇰🇷 韩语</button>
+        <button onclick="setSimLanguage('de')" id="lbtn-de" class="lang-btn px-2.5 py-1 text-xs rounded-lg font-semibold bg-gray-800 text-gray-300 hover:bg-gray-700 transition">🇩🇪 德语</button>
+        <button onclick="setSimLanguage('sv')" id="lbtn-sv" class="lang-btn px-2.5 py-1 text-xs rounded-lg font-semibold bg-gray-800 text-gray-300 hover:bg-gray-700 transition">🇸🇪 瑞典</button>
+      </div>
+    </div>
+
+    <!-- Simulator Showcase Layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      
+      <!-- Left: Device Frame (iPhone 15 Pro Aesthetic) -->
+      <div class="lg:col-span-5 flex justify-center">
+        <div class="phone-mockup bg-black relative p-3 overflow-hidden flex flex-col">
+          <!-- Dynamic Island -->
+          <div class="absolute top-4 left-1/2 -translate-x-1/2 w-28 h-6 bg-black rounded-full z-40 flex items-center justify-between px-3">
+            <span class="w-2.5 h-2.5 rounded-full bg-slate-900/80"></span>
+            <span class="w-2 h-2 rounded-full bg-emerald-500/80"></span>
+          </div>
+
+          <!-- Status Bar -->
+          <div class="h-10 pt-2 px-6 flex justify-between items-center text-[11px] font-semibold text-slate-800 z-30 select-none">
+            <span>09:41</span>
+            <div class="flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 19.4c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0l1.9-1.9C9.28 19.64 10.58 20 12 20c4.97 0 9-4.03 9-9s-4.03-9-9-9z"/></svg>
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M2 17h20v2H2zm1.15-4.05L4 11.97c3.9-3.91 10.24-3.91 14.14 0l.85.98-1.42 1.42-.85-.98c-3.12-3.12-8.19-3.12-11.31 0l-.85.98z"/></svg>
+              <div class="w-5 h-2.5 border border-slate-800 rounded-sm p-0.5 flex items-center">
+                <div class="h-full w-full bg-slate-800 rounded-2xs"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Screen Container with Inner Mockups -->
+          <div class="flex-1 bg-[#F5F7FA] rounded-[34px] overflow-hidden relative flex flex-col text-slate-900 select-none">
+            
+            <!-- SCREEN 1: HOME -->
+            <div id="screen-home" class="screen-view absolute inset-0 flex flex-col overflow-y-auto">
+              <!-- Top Bar -->
+              <div class="px-5 pt-3 pb-2 bg-white/90 backdrop-blur sticky top-0 z-20 border-b border-slate-100">
+                <div class="flex items-center justify-between mb-2">
+                  <div>
+                    <span class="text-xs font-bold text-[#0058A3] tracking-wider uppercase">IKEAR MARKET</span>
+                    <h2 class="text-2xl font-black text-slate-900 tracking-tight">发现</h2>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <button class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:text-red-500">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                    </button>
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 -ml-3 mb-4"></span>
+                  </div>
+                </div>
+
+                <!-- Search Input -->
+                <div class="flex items-center bg-slate-100 rounded-xl px-3 py-2 gap-2 text-slate-400">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                  <input type="text" placeholder="搜索沙发、书桌、收纳..." class="bg-transparent text-xs w-full text-slate-800 focus:outline-none" readonly value="宜家经典款..." />
+                </div>
+
+                <!-- Sort & City Filter -->
+                <div class="flex items-center justify-between mt-2.5 pb-1">
+                  <div class="flex gap-1 bg-slate-100 p-0.5 rounded-lg text-[11px] font-semibold text-slate-600">
+                    <span class="px-2.5 py-1 rounded-md bg-white text-[#0058A3] shadow-xs">附近</span>
+                    <span class="px-2.5 py-1 rounded-md">最新</span>
+                    <span class="px-2.5 py-1 rounded-md">降价</span>
+                  </div>
+                  <div class="flex items-center gap-1 text-[11px] font-semibold text-[#0058A3] bg-blue-50 px-2 py-1 rounded-full">
+                    <span>📍 多伦多</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Categories Grid (Top 6 Preview) -->
+              <div class="px-4 py-3">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-xs font-bold text-slate-700">热门品类</span>
+                  <span class="text-[11px] text-[#0058A3] font-medium">全部 12 类 &rarr;</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                  <div class="bg-white p-2.5 rounded-2xl border border-slate-100 flex flex-col items-center text-center shadow-xs hover:border-blue-200 cursor-pointer">
+                    <div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-xl mb-1">🛋️</div>
+                    <span class="text-xs font-semibold text-slate-800">沙发座椅</span>
+                    <span class="text-[10px] text-slate-400">142 件</span>
+                  </div>
+                  <div class="bg-white p-2.5 rounded-2xl border border-slate-100 flex flex-col items-center text-center shadow-xs hover:border-blue-200 cursor-pointer">
+                    <div class="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-xl mb-1">🛏️</div>
+                    <span class="text-xs font-semibold text-slate-800">床与床垫</span>
+                    <span class="text-[10px] text-slate-400">98 件</span>
+                  </div>
+                  <div class="bg-white p-2.5 rounded-2xl border border-slate-100 flex flex-col items-center text-center shadow-xs hover:border-blue-200 cursor-pointer">
+                    <div class="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-xl mb-1">📦</div>
+                    <span class="text-xs font-semibold text-slate-800">衣柜储物</span>
+                    <span class="text-[10px] text-slate-400">230 件</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Feed Items (Real Nordic Style Cards) -->
+              <div class="px-4 pb-20 space-y-3">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-slate-700">附近优质闲置</span>
+                  <span class="text-[10px] bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full">已认证自提</span>
+                </div>
+
+                <!-- Product Card 1 -->
+                <div class="bg-white rounded-2xl p-3 border border-slate-100 shadow-sm hover:shadow-md transition">
+                  <div class="relative w-full h-36 bg-gradient-to-tr from-slate-100 to-slate-200 rounded-xl overflow-hidden flex items-center justify-center">
+                    <svg class="w-24 h-24 text-slate-600" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="15" y="45" width="70" height="30" rx="6" fill="#DDE3EA"/>
+                      <path d="M15 52 C 15 32, 25 25, 50 25 C 75 25, 85 32, 85 52" fill="#E2E8F0"/>
+                      <line x1="22" y1="75" x2="18" y2="86" stroke-width="4"/>
+                      <line x1="78" y1="75" x2="82" y2="86" stroke-width="4"/>
+                    </svg>
+                    <span class="absolute top-2 left-2 bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">99新 · 仅拆封</span>
+                    <span class="absolute top-2 right-2 bg-white/90 text-slate-700 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-xs">2.4km</span>
+                  </div>
+                  <div class="mt-2.5">
+                    <div class="flex items-center justify-between">
+                      <h4 class="text-xs font-bold text-slate-900 truncate">宜家 POÄNG 波昂单人扶手椅</h4>
+                      <span class="text-sm font-black text-[#0058A3]">$120</span>
+                    </div>
+                    <p class="text-[11px] text-slate-500 line-clamp-1 mt-0.5">经典曲木工艺，桦木贴皮配米色软垫，原封未拆。</p>
+                    <div class="flex items-center justify-between mt-2 pt-2 border-t border-slate-50 text-[10px] text-slate-400">
+                      <span>万锦市 · 2小时前</span>
+                      <span class="text-[#0058A3] font-semibold">23人想要</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Product Card 2 -->
+                <div class="bg-white rounded-2xl p-3 border border-slate-100 shadow-sm hover:shadow-md transition">
+                  <div class="relative w-full h-36 bg-gradient-to-tr from-amber-50 to-orange-100 rounded-xl overflow-hidden flex items-center justify-center">
+                    <svg class="w-24 h-24 text-amber-800" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="25" y="20" width="50" height="60" rx="3" fill="#F8FAFC"/>
+                      <line x1="25" y1="38" x2="75" y2="38"/>
+                      <line x1="25" y1="56" x2="75" y2="56"/>
+                      <line x1="50" y1="20" x2="50" y2="80"/>
+                    </svg>
+                    <span class="absolute top-2 left-2 bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">良好 · 微小划痕</span>
+                    <span class="absolute top-2 right-2 bg-red-50 text-red-600 text-[10px] font-bold px-2 py-0.5 rounded-full">已降价 $30</span>
+                  </div>
+                  <div class="mt-2.5">
+                    <div class="flex items-center justify-between">
+                      <h4 class="text-xs font-bold text-slate-900 truncate">KALLAX 卡莱克 4格置物架</h4>
+                      <div class="text-right">
+                        <span class="text-sm font-black text-[#0058A3]">$45</span>
+                        <span class="text-[10px] text-slate-400 line-through ml-1">$75</span>
+                      </div>
+                    </div>
+                    <p class="text-[11px] text-slate-500 line-clamp-1 mt-0.5">白色无变形，附带 2 个收纳抽屉内胆。</p>
+                    <div class="flex items-center justify-between mt-2 pt-2 border-t border-slate-50 text-[10px] text-slate-400">
+                      <span>密西沙加 · 昨天</span>
+                      <span class="text-amber-600 font-semibold">剩 3 天下架</span>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- SCREEN 2: DETAIL -->
+            <div id="screen-detail" class="screen-view absolute inset-0 flex flex-col overflow-y-auto hidden">
+              <!-- Top Image Slider -->
+              <div class="relative w-full h-64 bg-slate-200">
+                <div class="w-full h-full flex items-center justify-center bg-gradient-to-tr from-blue-100 to-indigo-100">
+                  <svg class="w-32 h-32 text-[#0058A3]" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="15" y="45" width="70" height="30" rx="6" fill="#C7D7E9"/>
+                    <path d="M15 52 C 15 32, 25 25, 50 25 C 75 25, 85 32, 85 52" fill="#DCE6F1"/>
+                  </svg>
+                </div>
+                <!-- Angle Badge Indicator -->
+                <div class="absolute bottom-3 left-4 bg-black/60 backdrop-blur text-white text-[10px] font-medium px-2.5 py-1 rounded-full flex items-center gap-1.5">
+                  <span>📸 1/5 正面整体</span>
+                  <span class="w-1 h-1 rounded-full bg-slate-400"></span>
+                  <span class="text-emerald-300">必填已核准</span>
+                </div>
+                <!-- Pagination Dots -->
+                <div class="absolute bottom-3 right-4 flex gap-1">
+                  <span class="w-4 h-1.5 rounded-full bg-[#0058A3]"></span>
+                  <span class="w-1.5 h-1.5 rounded-full bg-white/60"></span>
+                  <span class="w-1.5 h-1.5 rounded-full bg-white/60"></span>
+                </div>
+              </div>
+
+              <!-- Product Info -->
+              <div class="p-4 space-y-3">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="text-xl font-black text-[#0058A3]">$120</span>
+                    <span class="text-xs bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-md">全新成色</span>
+                  </div>
+                  <span class="text-xs text-slate-400">浏览 203 次</span>
+                </div>
+
+                <h3 class="text-base font-bold text-slate-900">宜家 POÄNG 波昂单人扶手椅 + 坐垫</h3>
+                <p class="text-xs text-slate-600 leading-relaxed">
+                  多买了一把原封未拆，带经典灰色可拆洗坐垫。木质骨架弹性极佳，承重 170kg。诚意要可小刀，自提地点万锦。
+                </p>
+
+                <!-- 5 Angles Inspection Grid -->
+                <div class="bg-white rounded-2xl p-3 border border-slate-100 space-y-2">
+                  <div class="flex items-center justify-between text-xs font-bold text-slate-800">
+                    <span>商品验真透视 (5 角度标准)</span>
+                    <span class="text-emerald-600 text-[10px] font-semibold">100% 完整录入</span>
+                  </div>
+                  <div class="grid grid-cols-5 gap-1.5 text-center text-[10px]">
+                    <div class="bg-blue-50 p-1.5 rounded-lg border border-blue-200">
+                      <div>✅</div>
+                      <div class="font-medium text-slate-700 mt-1">正面</div>
+                    </div>
+                    <div class="bg-blue-50 p-1.5 rounded-lg border border-blue-200">
+                      <div>✅</div>
+                      <div class="font-medium text-slate-700 mt-1">细节标</div>
+                    </div>
+                    <div class="bg-slate-100 p-1.5 rounded-lg">
+                      <div>✅</div>
+                      <div class="font-medium text-slate-700 mt-1">侧面</div>
+                    </div>
+                    <div class="bg-slate-100 p-1.5 rounded-lg">
+                      <div>✅</div>
+                      <div class="font-medium text-slate-700 mt-1">内部</div>
+                    </div>
+                    <div class="bg-slate-100 p-1.5 rounded-lg">
+                      <div>✅</div>
+                      <div class="font-medium text-slate-700 mt-1">无瑕疵</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Seller Profile Card -->
+                <div class="bg-white rounded-2xl p-3 border border-slate-100 flex items-center justify-between">
+                  <div class="flex items-center gap-2.5">
+                    <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-sm font-bold text-[#0058A3]">
+                      A
+                    </div>
+                    <div>
+                      <div class="text-xs font-bold text-slate-900 flex items-center gap-1">
+                        Amy的收纳间
+                        <span class="text-[10px] bg-sky-100 text-[#0058A3] px-1 rounded">信誉 4.9</span>
+                      </div>
+                      <div class="text-[10px] text-slate-400">已成功流通 31 件宜家家具</div>
+                    </div>
+                  </div>
+                  <button class="text-xs text-[#0058A3] font-semibold">主页 &rarr;</button>
+                </div>
+              </div>
+
+              <!-- Fixed Bottom Bar -->
+              <div class="mt-auto p-3 bg-white border-t border-slate-100 flex items-center gap-2">
+                <button class="px-3 py-2 rounded-xl border border-slate-200 text-slate-600 flex flex-col items-center text-[10px]">
+                  <span>❤️</span>
+                  <span>收藏</span>
+                </button>
+                <button class="flex-1 py-3 rounded-xl bg-[#0058A3] text-white font-bold text-xs shadow-md shadow-[#0058A3]/25 flex items-center justify-center gap-1.5">
+                  <span>💬</span>
+                  <span>立即沟通 / 砍价</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- SCREEN 3: CREATE / PUBLISH -->
+            <div id="screen-create" class="screen-view absolute inset-0 flex flex-col overflow-y-auto hidden">
+              <div class="p-4 bg-white border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <span class="text-[10px] font-bold text-[#0058A3] uppercase tracking-wider">AI 极速估价与刊登</span>
+                  <h3 class="text-xl font-black text-slate-900">发布闲置家具</h3>
+                </div>
+                <span class="text-[10px] bg-blue-50 text-[#0058A3] px-2 py-1 rounded-full font-bold">
+                  👑 皇冠卖家 (+30%权重)
+                </span>
+              </div>
+
+              <div class="p-3 space-y-3">
+                <!-- AI Visual Auto-Fill Banner -->
+                <div class="bg-gradient-to-r from-blue-50 to-emerald-50 rounded-2xl p-3 border border-emerald-200 shadow-xs">
+                  <div class="flex items-center gap-1.5 text-xs font-bold text-emerald-900">
+                    <span>✨ AI 识别成功：POÄNG 波昂单人扶手椅</span>
+                  </div>
+                  <p class="text-[11px] text-emerald-800 mt-0.5">
+                    官方原价参考 ¥699 · 建议二手转让价 <strong>¥110 ~ ¥160</strong>（已自动填单，可自由微调）
+                  </p>
+                </div>
+
+                <!-- No Photo Warning Notice -->
+                <div class="bg-amber-50 rounded-2xl p-3 border border-amber-200">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-amber-900 flex items-center gap-1">💬 无图模式曝光提示</span>
+                    <span class="text-[10px] font-bold bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded">低权重 -65%</span>
+                  </div>
+                  <p class="text-[10px] text-amber-800 mt-1 leading-relaxed">
+                    若采用无图对话模式刊登，系统将使用官方参考图，但排序优先级较低。<strong>实拍照片越多、越清晰，推荐等级越高！</strong>
+                  </p>
+                </div>
+
+                <!-- 5 Angles Photo Guide -->
+                <div class="bg-white rounded-2xl p-3 border border-slate-100 shadow-xs space-y-2">
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <h4 class="text-xs font-bold text-slate-800">实拍验真度 (多图优先加权)</h4>
+                      <p class="text-[10px] text-slate-400">5角度全图享 1.3x 优先推荐</p>
+                    </div>
+                    <span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">已就绪 (1.3x)</span>
+                  </div>
+
+                  <!-- Angle Checklist -->
+                  <div class="space-y-1 text-xs">
+                    <div class="flex items-center justify-between p-1.5 rounded-xl bg-emerald-50 text-emerald-900 font-medium">
+                      <span>✅ 1. 正面整体（必填 · 已识别）</span>
+                      <span class="text-[10px] text-emerald-700">✓</span>
+                    </div>
+                    <div class="flex items-center justify-between p-1.5 rounded-xl bg-emerald-50 text-emerald-900 font-medium">
+                      <span>✅ 2. 细节/标签（必填 · 型号铭牌）</span>
+                      <span class="text-[10px] text-emerald-700">✓</span>
+                    </div>
+                    <div class="flex items-center justify-between p-1.5 rounded-xl bg-blue-50 text-blue-900 font-medium">
+                      <span>📷 3. 瑕疵与内部（软建议 · 提升成单率）</span>
+                      <span class="text-[10px] bg-[#0058A3] text-white px-1.5 py-0.5 rounded">去补拍</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Auto-filled form preview -->
+                <div class="bg-white rounded-2xl p-3 border border-slate-100 space-y-2.5 text-xs">
+                  <div>
+                    <label class="block font-semibold text-slate-700 mb-0.5 text-[11px]">商品标题 (AI 自动填充)</label>
+                    <input type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-slate-800" value="宜家 POÄNG 波昂单人扶手椅（含坐垫）" />
+                  </div>
+                  <div class="grid grid-cols-2 gap-2">
+                    <div>
+                      <label class="block font-semibold text-slate-700 mb-0.5 text-[11px]">转让价格 (AI 估算)</label>
+                      <input type="number" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-[#0058A3] font-bold text-sm" value="135" />
+                    </div>
+                    <div>
+                      <label class="block font-semibold text-slate-700 mb-0.5 text-[11px]">预估成色</label>
+                      <input type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-slate-800" value="良好 (无结构损坏)" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Submit button -->
+              <div class="mt-auto p-3 bg-white border-t border-slate-100">
+                <button class="w-full py-3 bg-[#0058A3] text-white font-bold rounded-xl text-xs shadow-md shadow-[#0058A3]/30">
+                  确认无误 · 立即上架
+                </button>
+              </div>
+            </div>
+
+            <!-- SCREEN 4: MESSAGES -->
+            <div id="screen-messages" class="screen-view absolute inset-0 flex flex-col overflow-y-auto hidden">
+              <div class="p-4 bg-white border-b border-slate-100">
+                <h3 class="text-xl font-black text-slate-900">消息与议价</h3>
+                <p class="text-xs text-slate-400">买卖双方围绕商品即时沟通</p>
+              </div>
+
+              <div class="p-3 space-y-2">
+                <div class="bg-white p-3 rounded-2xl border border-slate-100 shadow-xs flex items-center justify-between cursor-pointer hover:border-blue-200">
+                  <div class="flex items-center gap-3">
+                    <div class="relative">
+                      <div class="w-11 h-11 rounded-full bg-blue-100 flex items-center justify-center font-bold text-[#0058A3]">L</div>
+                      <span class="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-red-500 rounded-full text-white text-[9px] font-bold flex items-center justify-center border-2 border-white">2</span>
+                    </div>
+                    <div>
+                      <div class="text-xs font-bold text-slate-900">Leo在北边 <span class="text-[10px] text-slate-400 font-normal">· SÖDERHAMN 沙发</span></div>
+                      <div class="text-[11px] text-slate-500 line-clamp-1 mt-0.5">周日下午开车自提，方便拍下底部螺丝吗？</div>
+                    </div>
+                  </div>
+                  <span class="text-[10px] text-slate-400">42分前</span>
+                </div>
+
+                <div class="bg-white p-3 rounded-2xl border border-slate-100 shadow-xs flex items-center justify-between cursor-pointer hover:border-blue-200">
+                  <div class="flex items-center gap-3">
+                    <div class="w-11 h-11 rounded-full bg-amber-100 flex items-center justify-center font-bold text-amber-800">A</div>
+                    <div>
+                      <div class="text-xs font-bold text-slate-900">Amy的收纳间 <span class="text-[10px] text-slate-400 font-normal">· MICKE 书桌</span></div>
+                      <div class="text-[11px] text-slate-500 line-clamp-1 mt-0.5">好的，明天给你答复～</div>
+                    </div>
+                  </div>
+                  <span class="text-[10px] text-slate-400">8分前</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- SCREEN 5: CHAT -->
+            <div id="screen-chat" class="screen-view absolute inset-0 flex flex-col overflow-y-auto hidden">
+              <!-- Chat Header -->
+              <div class="p-3 bg-white border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <div class="text-xs font-bold text-slate-900">Leo在北边</div>
+                  <div class="text-[10px] text-emerald-600">● 在线 · SÖDERHAMN 三人沙发 ($420)</div>
+                </div>
+                <button class="text-xs text-[#0058A3] font-semibold bg-blue-50 px-2.5 py-1 rounded-lg">生成自提协议</button>
+              </div>
+
+              <!-- Chat Stream -->
+              <div class="flex-1 p-3 space-y-3 overflow-y-auto text-xs">
+                <div class="flex gap-2">
+                  <div class="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold">L</div>
+                  <div class="bg-white border border-slate-200 p-2.5 rounded-2xl rounded-tl-none max-w-[75%] text-slate-800">
+                    沙发还在吗？写着诚意可小刀，450 能到 400 吗？
+                  </div>
+                </div>
+
+                <div class="flex gap-2 justify-end">
+                  <div class="bg-[#0058A3] text-white p-2.5 rounded-2xl rounded-tr-none max-w-[75%] shadow-xs">
+                    在的。420 可以，沙发套刚洗过，几乎没有使用痕迹。
+                  </div>
+                </div>
+
+                <div class="flex gap-2">
+                  <div class="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold">L</div>
+                  <div class="bg-white border border-slate-200 p-2.5 rounded-2xl rounded-tl-none max-w-[75%] text-slate-800">
+                    成交！我周日下午开车过来自提，需要两个人搬吗？
+                  </div>
+                </div>
+              </div>
+
+              <!-- Chat Input Bar -->
+              <div class="p-2.5 bg-white border-t border-slate-100 flex items-center gap-2">
+                <button class="text-slate-400 p-1">📷</button>
+                <input type="text" placeholder="回复买家..." class="flex-1 bg-slate-100 text-xs rounded-xl px-3 py-2 text-slate-800 focus:outline-none" value="两个人搬比较稳妥，我也会帮忙抬" />
+                <button class="w-8 h-8 rounded-full bg-[#0058A3] text-white flex items-center justify-center text-xs">➤</button>
+              </div>
+            </div>
+
+            <!-- SCREEN 4: PROFILE & CONSOLIDATED HUB (3-IN-1: LISTINGS, MESSAGES, SETTINGS) -->
+            <div id="screen-profile" class="screen-view absolute inset-0 flex flex-col overflow-y-auto hidden">
+              <!-- Profile Header -->
+              <div class="bg-gradient-to-br from-[#0058A3] to-[#003b6e] p-5 text-white">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-3">
+                    <div class="w-13 h-13 rounded-full border-2 border-white/60 bg-white/20 backdrop-blur flex items-center justify-center text-xl font-bold">
+                      琉
+                    </div>
+                    <div>
+                      <div class="flex items-center gap-1.5">
+                        <h3 class="text-base font-bold text-white" id="sim-user-name">湛琉</h3>
+                        <span class="bg-amber-400 text-slate-900 text-[10px] font-black px-1.5 py-0.2 rounded-full" id="sim-trust-chip">🥇 金牌优选 92分</span>
+                      </div>
+                      <p class="text-xs text-blue-200 mt-0.5">多伦多 · North York · 优先曝光 1.2x</p>
+                    </div>
+                  </div>
+                  <button onclick="setSimHubTab('settings')" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-sm hover:bg-white/20">
+                    ⚙️
+                  </button>
+                </div>
+
+                <!-- 3-in-1 Hub Navigation Segments -->
+                <div class="grid grid-cols-3 gap-1 mt-4 p-1 rounded-xl bg-white/10 text-center text-xs font-semibold">
+                  <button onclick="setSimHubTab('listings')" id="sim-hub-tab-listings" class="py-1.5 rounded-lg bg-white text-[#0058A3] shadow-xs">
+                    📦 <span id="sim-txt-tab-listings">在售管理</span>
+                  </button>
+                  <button onclick="setSimHubTab('messages')" id="sim-hub-tab-messages" class="py-1.5 rounded-lg text-white/90 hover:bg-white/10">
+                    💬 <span id="sim-txt-tab-messages">议价消息</span> (2)
+                  </button>
+                  <button onclick="setSimHubTab('settings')" id="sim-hub-tab-settings" class="py-1.5 rounded-lg text-white/90 hover:bg-white/10">
+                    ⚙️ <span id="sim-txt-tab-settings">偏好设置</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Hub Sub-View 1: Listings Lifecycle -->
+              <div id="sim-hub-view-listings" class="p-3 space-y-3">
+                <!-- Lifecycle Reminder -->
+                <div class="bg-amber-50 rounded-2xl p-3 border border-amber-200 text-amber-900">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold flex items-center gap-1">⏰ 临期刷新 · 赠 24h 曝光</span>
+                    <span class="text-[10px] font-bold bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded">剩 2 天到期</span>
+                  </div>
+                  <p class="text-[11px] mt-1 text-amber-800">
+                    宜家 MALM 双人床架 临近 30 天周期，刷新后有效期重置并获全城置顶推荐。
+                  </p>
+                  <button class="mt-2.5 w-full py-2 bg-amber-600 text-white font-bold text-xs rounded-xl shadow-xs hover:bg-amber-700 transition">
+                    ⚡️ 一键刷新 (+24h 置顶曝光)
+                  </button>
+                </div>
+
+                <!-- Product Status Tabs -->
+                <div class="flex gap-1 bg-slate-200/80 p-1 rounded-xl text-xs font-semibold text-slate-600">
+                  <button class="flex-1 py-1 rounded-lg bg-white text-[#0058A3] shadow-xs">在售 (4)</button>
+                  <button class="flex-1 py-1 rounded-lg">已过期 (1)</button>
+                  <button class="flex-1 py-1 rounded-lg">已售出 (8)</button>
+                  <button class="flex-1 py-1 rounded-lg">归档 (2)</button>
+                </div>
+
+                <!-- Listing Item Row -->
+                <div class="bg-white p-3 rounded-2xl border border-slate-100 shadow-xs space-y-2">
+                  <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-2xl">🪑</div>
+                    <div class="flex-1">
+                      <div class="text-xs font-bold text-slate-900 line-clamp-1">宜家 POÄNG 波昂单人扶手椅</div>
+                      <div class="text-xs font-black text-[#0058A3] mt-0.5">$120</div>
+                    </div>
+                    <span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">在售中</span>
+                  </div>
+                  <div class="flex items-center justify-between pt-2 border-t border-slate-50 text-[11px]">
+                    <span class="text-slate-400">有效期剩 24 天</span>
+                    <div class="flex gap-2">
+                      <button class="text-[#0058A3] font-semibold">降价重上架</button>
+                      <button class="text-slate-500">标记已售</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Hub Sub-View 2: Messages Inbox -->
+              <div id="sim-hub-view-messages" class="p-3 space-y-2 hidden">
+                <div class="bg-white p-3 rounded-2xl border border-slate-100 shadow-xs flex items-center justify-between cursor-pointer hover:border-blue-200">
+                  <div class="flex items-center gap-3">
+                    <div class="relative">
+                      <div class="w-11 h-11 rounded-full bg-blue-100 flex items-center justify-center font-bold text-[#0058A3]">L</div>
+                      <span class="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-red-500 rounded-full text-white text-[9px] font-bold flex items-center justify-center border-2 border-white">2</span>
+                    </div>
+                    <div>
+                      <div class="text-xs font-bold text-slate-900">Leo在北边 <span class="text-[10px] text-slate-400 font-normal">· SÖDERHAMN 沙发</span></div>
+                      <div class="text-[11px] text-slate-500 line-clamp-1 mt-0.5">周日下午开车自提，方便拍下底部螺丝吗？</div>
+                    </div>
+                  </div>
+                  <span class="text-[10px] text-slate-400">42分前</span>
+                </div>
+
+                <div class="bg-white p-3 rounded-2xl border border-slate-100 shadow-xs flex items-center justify-between cursor-pointer hover:border-blue-200">
+                  <div class="flex items-center gap-3">
+                    <div class="w-11 h-11 rounded-full bg-amber-100 flex items-center justify-center font-bold text-amber-800">A</div>
+                    <div>
+                      <div class="text-xs font-bold text-slate-900">Amy的收纳间 <span class="text-[10px] text-slate-400 font-normal">· MICKE 书桌</span></div>
+                      <div class="text-[11px] text-slate-500 line-clamp-1 mt-0.5">好的，明天给你答复～</div>
+                    </div>
+                  </div>
+                  <span class="text-[10px] text-slate-400">8分前</span>
+                </div>
+              </div>
+
+              <!-- Hub Sub-View 3: Settings & 9 Languages -->
+              <div id="sim-hub-view-settings" class="p-3 space-y-3 hidden">
+                <!-- Language Switcher Row -->
+                <div class="bg-white p-3 rounded-2xl border border-blue-200 shadow-xs">
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                      <span class="text-base">🌐</span>
+                      <div>
+                        <div class="text-xs font-bold text-slate-900" id="sim-txt-lang-title">系统语言设置</div>
+                        <div class="text-[10px] text-slate-400">支持全球 9 大主流语言无缝热切换</div>
+                      </div>
+                    </div>
+                    <span class="text-xs font-bold text-[#0058A3] bg-blue-50 px-2.5 py-1 rounded-lg" id="sim-cur-lang-badge">🇨🇳 简体中文</span>
+                  </div>
+                </div>
+
+                <!-- Face ID Security Row -->
+                <div class="bg-white p-3 rounded-2xl border border-slate-100 shadow-xs flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="text-base">🔒</span>
+                    <div>
+                      <div class="text-xs font-bold text-slate-900" id="sim-txt-bio-title">Face ID 生物识别锁</div>
+                      <div class="text-[10px] text-slate-400">每次进入 App 需验证</div>
+                    </div>
+                  </div>
+                  <span class="text-xs text-emerald-600 font-bold">已启用</span>
+                </div>
+
+                <!-- Trust Profile Row -->
+                <div class="bg-white p-3 rounded-2xl border border-slate-100 shadow-xs flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="text-base">🛡️</span>
+                    <div>
+                      <div class="text-xs font-bold text-slate-900" id="sim-txt-trust-title">卖家诚信等级</div>
+                      <div class="text-[10px] text-slate-400">履约率 100% · 多图验真奖励</div>
+                    </div>
+                  </div>
+                  <span class="text-xs font-bold text-amber-600">金牌优选 (92分)</span>
+                </div>
+
+                <!-- About & Disclaimer -->
+                <div class="bg-white p-3 rounded-2xl border border-slate-100 shadow-xs text-xs space-y-1">
+                  <div class="font-bold text-slate-800">关于 IKEAR 与合规声明</div>
+                  <p class="text-[10px] text-slate-400 leading-relaxed">
+                    第三方独立二手流通撮合平台，与宜家 (Inter IKEA Systems B.V.) 无隶属关联。
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- SCREEN 5: AUTH -->
+            <div id="screen-auth" class="screen-view absolute inset-0 flex flex-col justify-between p-6 bg-gradient-to-b from-white to-[#F5F7FA] hidden">
+              <div class="pt-8 text-center">
+                <div class="w-16 h-16 rounded-2xl bg-[#0058A3] mx-auto flex items-center justify-center font-black text-white text-2xl shadow-xl shadow-[#0058A3]/30">
+                  IK
+                </div>
+                <h3 class="text-2xl font-black text-slate-900 mt-4 tracking-tight">IKEAR</h3>
+                <p class="text-xs text-slate-500 mt-1" id="sim-txt-auth-sub">二手宜家家具 · 邻里温情流通</p>
+              </div>
+
+              <div class="space-y-3">
+                <button class="w-full py-3.5 bg-black text-white rounded-2xl font-bold text-xs flex items-center justify-center gap-2 shadow-sm">
+                  <span></span>
+                  <span>使用 Apple ID 一键登录</span>
+                </button>
+                <div class="flex items-center gap-3 my-2 text-slate-400 text-[11px]">
+                  <span class="flex-1 h-px bg-slate-200"></span>
+                  <span>或使用邮箱</span>
+                  <span class="flex-1 h-px bg-slate-200"></span>
+                </div>
+                <input type="email" placeholder="输入邮箱 (演示支持任意输入)" class="w-full bg-slate-100 border border-slate-200 text-xs rounded-2xl p-3.5 text-slate-800" value="zhanliu@ikear.app" />
+                <button class="w-full py-3.5 bg-[#0058A3] text-white rounded-2xl font-bold text-xs shadow-md shadow-[#0058A3]/30">
+                  开启家具新生活
+                </button>
+              </div>
+
+              <div class="text-center text-[10px] text-slate-400 pb-2">
+                登录即代表同意 《用户协议》 与 《社区公约》
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Bottom Navigation Bar for Device (Consolidated 3-Tab Experience) -->
+          <div class="h-14 bg-white/95 border-t border-slate-100 px-8 flex justify-between items-center text-[10px] font-semibold text-slate-400 z-30">
+            <button onclick="switchPreviewScreen('home')" id="bnav-home" class="flex flex-col items-center text-[#0058A3]">
+              <span class="text-base">🏠</span>
+              <span id="bnav-txt-home">发现</span>
+            </button>
+            <!-- Center Add Button -->
+            <button onclick="switchPreviewScreen('create')" class="w-11 h-11 -mt-5 rounded-full bg-[#0058A3] text-white flex items-center justify-center text-xl font-bold shadow-lg shadow-[#0058A3]/40 hover:scale-105 transition">
+              +
+            </button>
+            <button onclick="switchPreviewScreen('profile')" id="bnav-profile" class="flex flex-col items-center">
+              <span class="text-base">👤</span>
+              <span id="bnav-txt-hub">我的与管理</span>
+            </button>
+          </div>
+
+          <!-- Home Indicator -->
+          <div class="h-4 flex items-center justify-center">
+            <span class="w-32 h-1 bg-slate-400 rounded-full"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Detailed Feature & Design Notes for Active Screen -->
+      <div class="lg:col-span-7 space-y-6">
+        
+        <!-- Screen Highlight Card -->
+        <div class="bg-[#161B22] border border-gray-800 rounded-3xl p-6 shadow-xl">
+          <div class="flex items-center justify-between pb-4 border-b border-gray-800">
+            <div>
+              <span class="text-xs font-bold text-[#38BDF8] tracking-wider uppercase" id="screen-meta-badge">PAGE BREAKDOWN</span>
+              <h3 class="text-xl font-bold text-white mt-1" id="screen-meta-title">发现首页 (HomeScreen)</h3>
+            </div>
+            <span class="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-medium">
+              Ready for Production
+            </span>
+          </div>
+
+          <div class="mt-4 space-y-4 text-sm text-gray-300">
+            <p id="screen-meta-desc">
+              采用北欧极简留白原则，顶层对齐宜家官方 12 大品类导航。采用轻量排序条（附近/最新/降价），兼顾简约派的高效一屏一任务与增长派的同城地理化发现。
+            </p>
+
+            <div class="bg-gray-900/80 rounded-2xl p-4 border border-gray-800">
+              <h4 class="text-xs font-bold text-gray-200 uppercase tracking-wider mb-2">💎 关键设计美化升级亮点</h4>
+              <ul class="space-y-2 text-xs text-gray-300" id="screen-meta-highlights">
+                <li class="flex items-start gap-2">
+                  <span class="text-emerald-400">✓</span>
+                  <span><strong>告别全 Emoji 占位：</strong> 升级为矢量北欧家具造型与柔和马卡龙底色衬托，层次分明。</span>
+                </li>
+                <li class="flex items-start gap-2">
+                  <span class="text-emerald-400">✓</span>
+                  <span><strong>卡片阴影与边距：</strong> 采用 Apple HIG 微阴影 (4% opacity) 与 20px 大圆角，视觉轻盈。</span>
+                </li>
+                <li class="flex items-start gap-2">
+                  <span class="text-emerald-400">✓</span>
+                  <span><strong>状态 Badge 标签系统：</strong> 全新/良好/一般/磨损 精确匹配 4 色体系。</span>
+                </li>
+              </ul>
+            </div>
+
+            <!-- Design Rules & Spec Reference -->
+            <div class="grid grid-cols-2 gap-3 text-xs">
+              <div class="p-3 rounded-xl bg-gray-900/50 border border-gray-800">
+                <span class="text-gray-400 block text-[11px]">对应代码组件</span>
+                <code class="text-blue-400 font-mono mt-1 block" id="screen-meta-code">src/screens/HomeScreen.tsx</code>
+              </div>
+              <div class="p-3 rounded-xl bg-gray-900/50 border border-gray-800">
+                <span class="text-gray-400 block text-[11px]">测试套件覆盖</span>
+                <span class="text-emerald-400 font-mono mt-1 block" id="screen-meta-tests">28 测试通过 (Browse/Sort/Loc)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Before & After Comparison Panel -->
+        <div class="bg-[#161B22] border border-gray-800 rounded-3xl p-6 shadow-xl">
+          <h4 class="text-base font-bold text-white mb-4 flex items-center gap-2">
+            ⚖️ 改造前后对比 (Before vs After)
+          </h4>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+            <!-- Before -->
+            <div class="bg-red-950/20 border border-red-900/40 rounded-2xl p-4">
+              <div class="text-red-400 font-bold mb-2 flex items-center gap-1.5">
+                <span>❌ 改造前状态</span>
+              </div>
+              <ul class="space-y-1.5 text-gray-400">
+                <li>• 纯 Emoji 占位符，缺乏二手家具质感</li>
+                <li>• 桌面端限制 480px 狭窄手机列，留白过多</li>
+                <li>• 卡片阴影过于平淡，不同分类缺乏区分度</li>
+                <li>• 拍照发布时缺少直观的角度取景器说明</li>
+              </ul>
+            </div>
+
+            <!-- After -->
+            <div class="bg-emerald-950/20 border border-emerald-900/40 rounded-2xl p-4">
+              <div class="text-emerald-400 font-bold mb-2 flex items-center gap-1.5">
+                <span>✅ 改造后全新设计</span>
+              </div>
+              <ul class="space-y-1.5 text-emerald-200">
+                <li>• 经典宜家蓝 <code class="text-xs bg-emerald-900/50 px-1 rounded">#0058A3</code> 精确传达品牌温度</li>
+                <li>• 高清视觉组件 + 5 角度验真进度条</li>
+                <li>• 24h 曝光倒计时与生命周期回流钩子</li>
+                <li>• 响应式双端适配：移动端精致，桌面端优雅</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Screens Gallery (High-Fidelity Grid) -->
+  <section id="screens-gallery" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 border-t border-gray-800">
+    <div class="text-center max-w-2xl mx-auto mb-12">
+      <h3 class="text-3xl font-extrabold text-white tracking-tight">全界面设计总览图</h3>
+      <p class="text-sm text-gray-400 mt-2">覆盖 C2C 交易完整闭环：从发现选购、标准化发布，到买卖即时沟通与生命周期流转</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      
+      <!-- Card 1 -->
+      <div class="bg-[#161B22] border border-gray-800 rounded-2xl p-4 flex flex-col justify-between hover:border-blue-700/60 transition group">
+        <div>
+          <div class="h-44 bg-slate-900 rounded-xl overflow-hidden relative flex items-center justify-center p-3 mb-3 border border-gray-800 group-hover:border-blue-500/40 transition">
+            <div class="text-center">
+              <div class="text-4xl mb-2">🔍 🛋️</div>
+              <span class="text-xs font-bold text-sky-400">发现首页</span>
+              <p class="text-[10px] text-gray-400">12 官方分类 · 同城距离优先</p>
+            </div>
+          </div>
+          <h4 class="text-sm font-bold text-white">01. 发现 & 分类索引</h4>
+          <p class="text-xs text-gray-400 mt-1 leading-relaxed">九宫格品类直达，支持万锦/多伦多/密西沙加次级区域实时筛选。</p>
+        </div>
+        <button onclick="switchPreviewScreen('home'); location.href='#interactive-simulator';" class="mt-4 text-xs font-semibold text-blue-400 hover:text-blue-300">
+          查看模拟交互 &rarr;
+        </button>
+      </div>
+
+      <!-- Card 2 -->
+      <div class="bg-[#161B22] border border-gray-800 rounded-2xl p-4 flex flex-col justify-between hover:border-blue-700/60 transition group">
+        <div>
+          <div class="h-44 bg-slate-900 rounded-xl overflow-hidden relative flex items-center justify-center p-3 mb-3 border border-gray-800 group-hover:border-blue-500/40 transition">
+            <div class="text-center">
+              <div class="text-4xl mb-2">📦 🏷️</div>
+              <span class="text-xs font-bold text-sky-400">商品详情</span>
+              <p class="text-[10px] text-gray-400">5 角度验真 · 搭配周边占位</p>
+            </div>
+          </div>
+          <h4 class="text-sm font-bold text-white">02. 详情 & 验真透视</h4>
+          <p class="text-xs text-gray-400 mt-1 leading-relaxed">轮播大图、成色评级、卖家信誉与 M5 商城官方配件预留。</p>
+        </div>
+        <button onclick="switchPreviewScreen('detail'); location.href='#interactive-simulator';" class="mt-4 text-xs font-semibold text-blue-400 hover:text-blue-300">
+          查看模拟交互 &rarr;
+        </button>
+      </div>
+
+      <!-- Card 3 -->
+      <div class="bg-[#161B22] border border-gray-800 rounded-2xl p-4 flex flex-col justify-between hover:border-blue-700/60 transition group">
+        <div>
+          <div class="h-44 bg-slate-900 rounded-xl overflow-hidden relative flex items-center justify-center p-3 mb-3 border border-gray-800 group-hover:border-blue-500/40 transition">
+            <div class="text-center">
+              <div class="text-4xl mb-2">📷 ✨</div>
+              <span class="text-xs font-bold text-sky-400">引导式发布</span>
+              <p class="text-[10px] text-gray-400">硬底2 + 建议3 · 软建议不卡单</p>
+            </div>
+          </div>
+          <h4 class="text-sm font-bold text-white">03. 拍照引导与上架</h4>
+          <p class="text-xs text-gray-400 mt-1 leading-relaxed">正面、细节标签必填，侧面瑕疵选填，大幅提升转化与成交信任。</p>
+        </div>
+        <button onclick="switchPreviewScreen('create'); location.href='#interactive-simulator';" class="mt-4 text-xs font-semibold text-blue-400 hover:text-blue-300">
+          查看模拟交互 &rarr;
+        </button>
+      </div>
+
+      <!-- Card 4 -->
+      <div class="bg-[#161B22] border border-gray-800 rounded-2xl p-4 flex flex-col justify-between hover:border-blue-700/60 transition group">
+        <div>
+          <div class="h-44 bg-slate-900 rounded-xl overflow-hidden relative flex items-center justify-center p-3 mb-3 border border-gray-800 group-hover:border-blue-500/40 transition">
+            <div class="text-center">
+              <div class="text-4xl mb-2">⚡️ 🔄</div>
+              <span class="text-xs font-bold text-sky-400">生命周期流转</span>
+              <p class="text-[10px] text-gray-400">30天到期 · 赠24h曝光回流</p>
+            </div>
+          </div>
+          <h4 class="text-sm font-bold text-white">04. 卖家生命周期管理</h4>
+          <p class="text-xs text-gray-400 mt-1 leading-relaxed">临期刷新、降价重上架、标记已售出与 Face ID 安全隐私锁。</p>
+        </div>
+        <button onclick="switchPreviewScreen('profile'); location.href='#interactive-simulator';" class="mt-4 text-xs font-semibold text-blue-400 hover:text-blue-300">
+          查看模拟交互 &rarr;
+        </button>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Design System Tokens Specification -->
+  <section id="design-system" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 border-t border-gray-800">
+    <div class="bg-[#161B22] border border-gray-800 rounded-3xl p-8 shadow-xl">
+      <h3 class="text-2xl font-bold text-white mb-2">🎨 IKEAR 核心设计令牌 (Tokens Specification)</h3>
+      <p class="text-sm text-gray-400 mb-6">遵循 Apple Human Interface Guidelines 与斯堪的纳维亚家具设计极简法则</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <!-- Palette -->
+        <div class="space-y-3">
+          <h4 class="text-xs font-bold text-gray-300 uppercase tracking-wider">色彩系统 (Color Palette)</h4>
+          <div class="space-y-2 text-xs">
+            <div class="flex items-center justify-between p-2 rounded-xl bg-gray-900 border border-gray-800">
+              <div class="flex items-center gap-2">
+                <span class="w-6 h-6 rounded-lg bg-[#0058A3] shadow-xs"></span>
+                <span class="font-bold text-white">IKEA Brand Blue</span>
+              </div>
+              <code class="text-sky-400 font-mono">#0058A3</code>
+            </div>
+            <div class="flex items-center justify-between p-2 rounded-xl bg-gray-900 border border-gray-800">
+              <div class="flex items-center gap-2">
+                <span class="w-6 h-6 rounded-lg bg-[#FFDB00] shadow-xs"></span>
+                <span class="font-bold text-white">IKEA Warm Gold</span>
+              </div>
+              <code class="text-amber-400 font-mono">#FFDB00</code>
+            </div>
+            <div class="flex items-center justify-between p-2 rounded-xl bg-gray-900 border border-gray-800">
+              <div class="flex items-center gap-2">
+                <span class="w-6 h-6 rounded-lg bg-[#F5F7FA] border border-gray-700"></span>
+                <span class="font-bold text-white">Nordic Surface</span>
+              </div>
+              <code class="text-gray-400 font-mono">#F5F7FA</code>
+            </div>
+          </div>
+        </div>
+
+        <!-- Typography -->
+        <div class="space-y-3">
+          <h4 class="text-xs font-bold text-gray-300 uppercase tracking-wider">排版字阶 (Typography Scale)</h4>
+          <div class="p-3 rounded-2xl bg-gray-900 border border-gray-800 space-y-2 text-xs">
+            <div class="flex justify-between items-baseline border-b border-gray-800 pb-1">
+              <span class="text-white font-bold text-lg">Large Title</span>
+              <span class="text-gray-400">34px · Bold (SF Pro)</span>
+            </div>
+            <div class="flex justify-between items-baseline border-b border-gray-800 pb-1">
+              <span class="text-white font-bold text-base">Headline</span>
+              <span class="text-gray-400">17px · Semibold</span>
+            </div>
+            <div class="flex justify-between items-baseline">
+              <span class="text-white text-xs">Footnote / Caption</span>
+              <span class="text-gray-400">13px / 11px · Regular</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Radius & Shadows -->
+        <div class="space-y-3">
+          <h4 class="text-xs font-bold text-gray-300 uppercase tracking-wider">圆角与空间 (Elevation & Radius)</h4>
+          <div class="p-3 rounded-2xl bg-gray-900 border border-gray-800 space-y-2 text-xs text-gray-300">
+            <div class="flex justify-between">
+              <span>Card Radius</span>
+              <code class="text-emerald-400">16px ~ 20px (Smoothed)</code>
+            </div>
+            <div class="flex justify-between">
+              <span>Primary Button</span>
+              <code class="text-emerald-400">Height: 50px · Pill/14px</code>
+            </div>
+            <div class="flex justify-between">
+              <span>Card Elevation</span>
+              <code class="text-emerald-400">0 1px 3px rgba(0,0,0,0.04)</code>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive Script -->
+  <script>
+    const simI18n = {
+      'zh-CN': {
+        name: '简体中文', flag: '🇨🇳',
+        home_sub: '宜家好物，就在附近', search: '搜索沙发、书桌、收纳…',
+        nav_discover: '发现', nav_sell: '发布', nav_hub: '我的与管理',
+        tab_listings: '在售管理', tab_messages: '议价消息', tab_settings: '偏好设置',
+        trust_badge: '🥇 金牌优选 92分', lang_title: '系统语言设置',
+        auth_sub: '二手宜家家具 · 邻里温情流通'
+      },
+      'zh-TW': {
+        name: '繁體中文', flag: '🇭🇰',
+        home_sub: 'IKEA 二手好物，就在身邊', search: '搜尋沙發、書桌、收納櫃…',
+        nav_discover: '探索', nav_sell: '刊登', nav_hub: '我的與管理',
+        tab_listings: '在售商品', tab_messages: '議價對話', tab_settings: '系統偏好',
+        trust_badge: '🥇 金牌優選 92分', lang_title: '系統語言設定',
+        auth_sub: '二手 IKEA 家具 · 鄰里溫情流通'
+      },
+      'en': {
+        name: 'English', flag: '🇨🇦',
+        home_sub: 'Pre-loved IKEA pieces nearby', search: 'Search sofas, desks, storage…',
+        nav_discover: 'Discover', nav_sell: 'Sell', nav_hub: 'Hub & Profile',
+        tab_listings: 'My Listings', tab_messages: 'Messages', tab_settings: 'Settings',
+        trust_badge: '🥇 Gold Verified 92 pts', lang_title: 'Language Settings',
+        auth_sub: 'Pre-loved IKEA furniture · Neighborhood circular'
+      },
+      'fr': {
+        name: 'Français', flag: '🇫🇷',
+        home_sub: 'Meubles IKEA seconde main près de chez vous', search: 'Rechercher canapés, bureaux…',
+        nav_discover: 'Découvrir', nav_sell: 'Vendre', nav_hub: 'Mon Compte',
+        tab_listings: 'Mes Annonces', tab_messages: 'Messages', tab_settings: 'Préférences',
+        trust_badge: '🥇 Certifié Or 92 pts', lang_title: 'Langue du système',
+        auth_sub: 'Mobilier IKEA d’occasion · Économie locale'
+      },
+      'es': {
+        name: 'Español', flag: '🇪🇸',
+        home_sub: 'Muebles IKEA de segunda mano cerca de ti', search: 'Buscar sofás, escritorios…',
+        nav_discover: 'Explorar', nav_sell: 'Vender', nav_hub: 'Mi Cuenta',
+        tab_listings: 'Mis Artículos', tab_messages: 'Mensajes', tab_settings: 'Ajustes',
+        trust_badge: '🥇 Oro Verificado 92 pts', lang_title: 'Idioma del sistema',
+        auth_sub: 'Muebles IKEA de ocasión · Comunidad circular'
+      },
+      'ja': {
+        name: '日本語', flag: '🇯🇵',
+        home_sub: 'ご近所のイケア家具をお得に', search: 'ソファ、デスク、収納を検索…',
+        nav_discover: '見つける', nav_sell: '出品する', nav_hub: 'マイページ',
+        tab_listings: '出品管理', tab_messages: '交渉メッセージ', tab_settings: '設定',
+        trust_badge: '🥇 ゴールド認定 92点', lang_title: '言語設定',
+        auth_sub: 'イケア中古家具の地域コミュニティ'
+      },
+      'ko': {
+        name: '한국어', flag: '🇰🇷',
+        home_sub: '가까운 이웃의 이케아 중고 가구', search: '소파, 책상, 수납장 검색…',
+        nav_discover: '발견', nav_sell: '판매', nav_hub: '내 정보',
+        tab_listings: '판매 관리', tab_messages: '대화 목록', tab_settings: '환경설정',
+        trust_badge: '🥇 골드 인증 92점', lang_title: '언어 설정',
+        auth_sub: '이케아 중고 가구 안심 직거래'
+      },
+      'de': {
+        name: 'Deutsch', flag: '🇩🇪',
+        home_sub: 'Gebrauchte IKEA Möbel in deiner Nähe', search: 'Sofas, Schreibtische, Regale suchen…',
+        nav_discover: 'Entdecken', nav_sell: 'Verkaufen', nav_hub: 'Mein Hub',
+        tab_listings: 'Meine Inserate', tab_messages: 'Nachrichten', tab_settings: 'Optionen',
+        trust_badge: '🥇 Gold Verifiziert 92 Pkt', lang_title: 'Spracheinstellungen',
+        auth_sub: 'IKEA Second-Hand Möbel · Nachhaltig'
+      },
+      'sv': {
+        name: 'Svenska', flag: '🇸🇪',
+        home_sub: 'Begagnade IKEA-möbler i ditt kvarter', search: 'Sök soffor, skrivbord, förvaring…',
+        nav_discover: 'Upptäck', nav_sell: 'Sälj', nav_hub: 'Mitt Hub',
+        tab_listings: 'Mina Annonser', tab_messages: 'Meddelanden', tab_settings: 'Inställningar',
+        trust_badge: '🥇 Guld Verifierad 92p', lang_title: 'Språkinställningar',
+        auth_sub: 'IKEA cirkulära möbler i grannskapet'
+      }
+    };
+
+    let curLang = 'zh-CN';
+
+    function setSimLanguage(langCode) {
+      curLang = langCode;
+      const dict = simI18n[langCode] || simI18n['zh-CN'];
+
+      // Update Toolbar buttons
+      document.querySelectorAll('.lang-btn').forEach(b => {
+        b.classList.remove('bg-[#0058A3]', 'text-white');
+        b.classList.add('bg-gray-800', 'text-gray-300');
+      });
+      const activeBtn = document.getElementById('lbtn-' + langCode);
+      if (activeBtn) {
+        activeBtn.classList.remove('bg-gray-800', 'text-gray-300');
+        activeBtn.classList.add('bg-[#0058A3]', 'text-white');
+      }
+
+      // Update Simulator elements
+      const elBnavHome = document.getElementById('bnav-txt-home');
+      if (elBnavHome) elBnavHome.textContent = dict.nav_discover;
+      const elBnavHub = document.getElementById('bnav-txt-hub');
+      if (elBnavHub) elBnavHub.textContent = dict.nav_hub;
+
+      const elTabListings = document.getElementById('sim-txt-tab-listings');
+      if (elTabListings) elTabListings.textContent = dict.tab_listings;
+      const elTabMessages = document.getElementById('sim-txt-tab-messages');
+      if (elTabMessages) elTabMessages.textContent = dict.tab_messages;
+      const elTabSettings = document.getElementById('sim-txt-tab-settings');
+      if (elTabSettings) elTabSettings.textContent = dict.tab_settings;
+
+      const elTrustChip = document.getElementById('sim-trust-chip');
+      if (elTrustChip) elTrustChip.textContent = dict.trust_badge;
+
+      const elLangBadge = document.getElementById('sim-cur-lang-badge');
+      if (elLangBadge) elLangBadge.textContent = `${dict.flag} ${dict.name}`;
+
+      const elLangTitle = document.getElementById('sim-txt-lang-title');
+      if (elLangTitle) elLangTitle.textContent = dict.lang_title;
+
+      const elAuthSub = document.getElementById('sim-txt-auth-sub');
+      if (elAuthSub) elAuthSub.textContent = dict.auth_sub;
+    }
+
+    function setSimHubTab(tabName) {
+      ['listings', 'messages', 'settings'].forEach(t => {
+        const view = document.getElementById('sim-hub-view-' + t);
+        const btn = document.getElementById('sim-hub-tab-' + t);
+        if (view) view.classList.toggle('hidden', t !== tabName);
+        if (btn) {
+          if (t === tabName) {
+            btn.className = 'py-1.5 rounded-lg bg-white text-[#0058A3] shadow-xs font-bold';
+          } else {
+            btn.className = 'py-1.5 rounded-lg text-white/90 hover:bg-white/10';
+          }
+        }
+      });
+    }
+
+    const screenData = {
+      home: {
+        badge: "CORE SCREEN · 01 / 05",
+        title: "发现首页 (HomeScreen)",
+        desc: "极简 5 屏之首。采用北欧极简留白原则，顶层对齐宜家官方品类导航与同城地理化推荐。支持综合排序、距离优先与降价特惠高亮，实时响应全局多语言切换。",
+        code: "src/screens/HomeScreen.tsx",
+        tests: "32 项单测 (Browse/Sort/Loc/i18n)",
+        highlights: [
+          "北欧温和色彩卡片体系，告别粗糙 Emoji 拼凑",
+          "双重轻量排序：附近距离优先 + 降价特惠高亮 + 诚信加权",
+          "一键心愿收藏计数角标，实时同步全局 Store",
+          "全站 9 大语言即时热切换无缝响应"
+        ]
+      },
+      detail: {
+        badge: "CORE SCREEN · 02 / 05",
+        title: "商品详情与验真屏 (ListingDetailScreen)",
+        desc: "贯彻一屏一任务（看货 &rarr; 验真 &rarr; 联系议价）。首屏多图轮播，首创 5 角度验真透视卡片，明确标识官方参考图并提醒实拍自提核验，底部直通 1v1 卖家私信。",
+        code: "src/screens/ListingDetailScreen.tsx",
+        tests: "24 项单测 (Expiry/Views/Accessories/RefNotice)",
+        highlights: [
+          "5 角度验真状态展示，消除二手瑕疵隐瞒纠纷",
+          "官方示意图醒目标注：保护买家知情权，避免商标混淆",
+          "动态生命周期提示：临期与已失效温和提示",
+          "底部常驻联系卖家与意向出价栏"
+        ]
+      },
+      create: {
+        badge: "CORE SCREEN · 03 / 05",
+        title: "AI 估价与无图速记刊登 (CreateListingScreen)",
+        desc: "12 位 PM 联席共识落地：拍照后毫秒级并发运行 AI 视觉模型，自动识别经典家具型号、推算 MSRP 原价与建议转让区间并自动填单。同时提供无图对话刊登通道（带曝光降权说明）与卖家诚信等级加权机制。",
+        code: "src/screens/CreateListingScreen.tsx",
+        tests: "48 项单测 (aiEstimate/listingRules/chatToList)",
+        highlights: [
+          "📸 AI 视觉估价：自动填好 90% 表单，用户核对即可 5 秒上架",
+          "💬 无图对话模式：自然语言识别型号，匹配官方示意图，降权 65%",
+          "🛡️ 卖家诚信加权：皇冠信赖/金牌卖家自动获取自然排位加成 (最高 1.3x)",
+          "📷 5 角度验真奖励：实拍照片越多推荐等级越高，多图成交率翻倍"
+        ]
+      },
+      profile: {
+        badge: "CORE SCREEN · 04 / 05 (CONSOLIDATED HUB)",
+        title: "综合管理 Hub (ProfileScreen - 3合1)",
+        desc: "严格落实「不要超过 5 屏」与「支持设置里切换所有主流语言」指令：将【在售管理】、【议价消息】与【偏好设置】三合一重构为超级枢纽。涵盖 30 天生命周期、一键刷新送 24h 曝光、9 语言切换抽屉与 Face ID 生物识别锁。",
+        code: "src/screens/ProfileScreen.tsx",
+        tests: "56 项单测 (Lifecycle/Boost/Biometrics/i18n/Threads)",
+        highlights: [
+          "🌐 9 大主流语言无缝热切换：简中/繁中/英/法/西/日/韩/德/瑞典语",
+          "📦 3 合 1 控制台：在售商品生命周期 + 议价消息会话箱 + 系统偏好",
+          "⚡️ 一键刷新赠 24h 曝光倒计时徽章与降价重上架打标",
+          "🔒 原生 Face ID / 指纹生物识别锁无缝接入"
+        ]
+      },
+      auth: {
+        badge: "CORE SCREEN · 05 / 05",
+        title: "极速登录与认证屏 (AuthScreen)",
+        desc: "支持 Apple Sign In 原生一键接入与演示免密体验。品牌标识高保真渲染，双模平滑切换，自动对接 Supabase Auth 会话持久化。",
+        code: "src/screens/AuthScreen.tsx",
+        tests: "16 项单测 (Auth/SessionPersistence)",
+        highlights: [
+          "官方 Apple Sign In 规范按钮与平滑动画",
+          "离线 Mock 模式与 Supabase 真实鉴权双轨并行",
+          "轻量无扰的演示体验"
+        ]
+      }
+    };
+
+    function switchPreviewScreen(screenKey) {
+      // Hide all screen views
+      document.querySelectorAll('.screen-view').forEach(el => el.classList.add('hidden'));
+      // Show chosen screen
+      const target = document.getElementById('screen-' + screenKey);
+      if (target) target.classList.remove('hidden');
+
+      // Update switcher pills
+      document.querySelectorAll('.screen-btn').forEach(btn => {
+        btn.classList.remove('bg-[#0058A3]', 'text-white');
+        btn.classList.add('bg-gray-800', 'text-gray-300');
+      });
+      const activeBtn = document.getElementById('tab-' + screenKey);
+      if (activeBtn) {
+        activeBtn.classList.remove('bg-gray-800', 'text-gray-300');
+        activeBtn.classList.add('bg-[#0058A3]', 'text-white');
+      }
+
+      // Update bottom nav active state
+      const elBHome = document.getElementById('bnav-home');
+      const elBProf = document.getElementById('bnav-profile');
+      if (elBHome && elBProf) {
+        if (screenKey === 'home') {
+          elBHome.classList.add('text-[#0058A3]');
+          elBProf.classList.remove('text-[#0058A3]');
+        } else if (screenKey === 'profile') {
+          elBProf.classList.add('text-[#0058A3]');
+          elBHome.classList.remove('text-[#0058A3]');
+        } else {
+          elBHome.classList.remove('text-[#0058A3]');
+          elBProf.classList.remove('text-[#0058A3]');
+        }
+      }
+
+      // Update right metadata panel
+      const meta = screenData[screenKey];
+      if (meta) {
+        document.getElementById('screen-meta-badge').textContent = meta.badge;
+        document.getElementById('screen-meta-title').textContent = meta.title;
+        document.getElementById('screen-meta-desc').textContent = meta.desc;
+        document.getElementById('screen-meta-code').textContent = meta.code;
+        document.getElementById('screen-meta-tests').textContent = meta.tests;
+
+        const listEl = document.getElementById('screen-meta-highlights');
+        listEl.innerHTML = meta.highlights.map(h => `
+          <li class="flex items-start gap-2">
+            <span class="text-emerald-400">✓</span>
+            <span>${h}</span>
+          </li>
+        `).join('');
+      }
+    }
+  </script>
+</body>
+</html>

@@ -32,6 +32,7 @@ import type { CategoryId, Listing } from '../data/types';
 import type { RootStackParamList } from '../App';
 import { colors, radius, spacing, typography } from '../theme/tokens';
 import { LocationPicker } from './LocationPicker';
+import { computeListingRankingScore } from '../lib/aiEstimate';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -55,9 +56,11 @@ const nearScore = (l: Listing, loc: AppLocation) => {
 function sortListings(list: Listing[], sort: SortMode, loc: AppLocation): Listing[] {
   const out = [...list];
   if (sort === 'near') {
-    return out.sort(
-      (a, b) => nearScore(b, loc) - nearScore(a, loc) || createdMs(b) - createdMs(a)
-    );
+    return out.sort((a, b) => {
+      const scoreB = computeListingRankingScore(b, b.sellerTrust, nearScore(b, loc));
+      const scoreA = computeListingRankingScore(a, a.sellerTrust, nearScore(a, loc));
+      return scoreB - scoreA || createdMs(b) - createdMs(a);
+    });
   }
   if (sort === 'price') {
     // 降价：有降价记录的排前，其次价格由低到高

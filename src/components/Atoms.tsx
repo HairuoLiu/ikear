@@ -823,8 +823,11 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     backgroundColor: colors.cardBg,
     paddingHorizontal: spacing.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.04)',
+    ...shadows.card,
   },
 });

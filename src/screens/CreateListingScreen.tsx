@@ -15,6 +15,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -23,7 +24,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { Camera, Check, Circle, Image as ImageIcon } from 'lucide-react-native';
+import { Camera, Check, Circle, Image as ImageIcon, Sparkles, MessageSquareText, AlertTriangle, ShieldCheck } from 'lucide-react-native';
 import {
   Badge,
   CategoryGridTile,
@@ -43,7 +44,8 @@ import { canPublish, photoProgress, HARD_PHOTO_MIN, MAX_PHOTOS } from '../lib/li
 import { CATEGORIES, getCategory, isCategoryId } from '../data/categories';
 // CategoryId / Condition 的定义源在 data/types（categories.ts 只做 re-use，不 re-export 类型）
 import type { CategoryId, Condition } from '../data/types';
-import { colors, spacing, typography } from '../theme/tokens';
+import { colors, radius, spacing, typography } from '../theme/tokens';
+import { estimateFurnitureFromPhoto, estimateFromChatDialog, getTrustProfile, IKEA_KNOWLEDGE_BASE } from '../lib/aiEstimate';
 
 /* ------------------------------------------------------------------ 引导角度 */
 
@@ -109,8 +111,18 @@ export function CreateListingScreen({ navigation }: { navigation?: Nav }) {
   const clearDraft = useStore((s) => s.clearDraft);
   const publishDraft = useStore((s) => s.publishDraft);
 
+  const currentUser = useStore((s) => s.currentUser);
+  const sellerTrust = useMemo(
+    () => getTrustProfile(currentUser?.rating ?? 4.9, currentUser?.soldCount ?? 12, true),
+    [currentUser]
+  );
+
   const [sourceSheet, setSourceSheet] = useState(false);
   const [categorySheet, setCategorySheet] = useState(false);
+  const [chatSheet, setChatSheet] = useState(false);
+  const [chatText, setChatText] = useState('');
+  const [aiBanner, setAiBanner] = useState<string | null>(null);
+  const [noPhotoWarning, setNoPhotoWarning] = useState<string | null>(null);
 
   const { width } = useWindowDimensions();
   const tileSize = Math.floor(
@@ -123,10 +135,11 @@ export function CreateListingScreen({ navigation }: { navigation?: Nav }) {
   }, [startDraft]);
 
   const photos = draft?.photos ?? [];
+  const isReferenceMode = !!draft?.aiMeta?.isReferencePhoto;
   const progress = photoProgress(draft);
   const requiredDone = Math.min(progress.count, progress.required);
   const suggestedDone = Math.min(Math.max(progress.count - progress.required, 0), SUGGESTED_ANGLES);
-  const publishable = canPublish(draft);
+  const publishable = canPublish(draft, { allowReferencePhoto: isReferenceMode });
 
   /** 展示顺序＝封面在前，与 publishDraft 的落库顺序一致；order[展示下标] = 真实下标 */
   const order = useMemo(() => {
@@ -137,7 +150,7 @@ export function CreateListingScreen({ navigation }: { navigation?: Nav }) {
 
   const displayPhotos = order.map((i) => photos[i]);
 
-  /* ---------------------------------------------------------- 照片操作 */
+  /* ---------------------------------------------------------- 照片与AI操作 */
 
   const pick = async (useCamera: boolean) => {
     setSourceSheet(false);
@@ -160,10 +173,52 @@ export function CreateListingScreen({ navigation }: { navigation?: Nav }) {
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
           });
       const uri = !result.canceled ? result.assets?.[0]?.uri : undefined;
-      if (uri) addDraftPhoto(uri);
+      if (uri) {
+        addDraftPhoto(uri);
+        // ✨ AI 视觉识别与自动填单
+        const currentPhotos = [...(draft?.photos ?? []), uri];
+        const ai = estimateFurnitureFromPhoto(currentPhotos);
+        setAiBanner(
+          `✨ AI 视觉识别：已匹配「${ai.meta.detectedModel}」· 建议转让价 ¥${ai.meta.estimatedPriceLow}~¥${ai.meta.estimatedPriceHigh}（已为您自动填好标题/分类/描述，可随时微调）`
+        );
+        setNoPhotoWarning(null);
+
+        // 如果用户尚未手动填写标题/价格，自动补齐
+        updateDraft({
+          title: draft?.title ? draft.title : ai.autoFilled.title,
+          price: draft?.price ? draft.price : ai.autoFilled.price,
+          category: draft?.category ? draft.category : ai.autoFilled.category,
+          condition: draft?.condition ? draft.condition : ai.autoFilled.condition,
+          description: draft?.description ? draft.description : ai.autoFilled.description,
+          listingMode: 'ai_photo',
+          aiMeta: ai.meta,
+        });
+      }
     } catch {
       Alert.alert('照片添加失败', '请稍后再试。');
     }
+  };
+
+  /** 💬 无图模式：通过用户自然对话一键生成挂牌并采用官方参考图 */
+  const handleChatToList = (input: string) => {
+    if (!input.trim()) return;
+    const res = estimateFromChatDialog(input);
+    res.autoFilled.referencePhotos.forEach((p) => addDraftPhoto(p));
+    updateDraft({
+      title: res.autoFilled.title,
+      price: res.autoFilled.price,
+      category: res.autoFilled.category,
+      condition: res.autoFilled.condition,
+      description: res.autoFilled.description,
+      listingMode: 'no_photo_chat',
+      aiMeta: res.meta,
+    });
+    setNoPhotoWarning(res.exposureWarning);
+    setAiBanner(
+      `💬 AI 对话匹配：已匹配「${res.matchedModel.model} (${res.matchedModel.nameZh})」· 原厂参考价 ¥${res.matchedModel.msrp}`
+    );
+    setChatSheet(false);
+    setChatText('');
   };
 
   const confirmRemove = (index: number) => {
@@ -210,10 +265,34 @@ export function CreateListingScreen({ navigation }: { navigation?: Nav }) {
         >
           <LargeTitleHeader title="发布闲置" subtitle="先拍照，再填两行字就能上架" />
 
+          {/* ---------------------------------------------- 卖家诚信状态 */}
+          <View style={styles.trustBanner}>
+            <ShieldCheck size={14} color={colors.brand} />
+            <Text style={styles.trustBannerText}>
+              卖家诚信：{sellerTrust.badgeIcon} {sellerTrust.label} · 推荐排序加权 +{Math.round((sellerTrust.score / 70 - 1) * 100)}%
+            </Text>
+          </View>
+
+          {/* ---------------------------------------------- AI 识别状态提示 */}
+          {aiBanner && (
+            <View style={styles.aiBanner}>
+              <Sparkles size={14} color={colors.brand} />
+              <Text style={styles.aiBannerText}>{aiBanner}</Text>
+            </View>
+          )}
+
+          {/* ---------------------------------------------- 无图模式降权警示 */}
+          {noPhotoWarning && (
+            <View style={styles.warningBanner}>
+              <AlertTriangle size={14} color={colors.orange} />
+              <Text style={styles.warningBannerText}>{noPhotoWarning}</Text>
+            </View>
+          )}
+
           {/* ---------------------------------------------- 照片与引导进度 */}
           <ListSection
             header={`照片 · 最多 ${MAX_PHOTOS} 张`}
-            footer="轻点照片可删除，长按设为封面。无滤镜、无水印。"
+            footer="轻点照片可删除，长按设为封面。实拍照片越多、越详细，平台推荐权重越高。"
           >
             <View style={styles.photoCard}>
               <View style={styles.progressRow}>
@@ -255,6 +334,16 @@ export function CreateListingScreen({ navigation }: { navigation?: Nav }) {
                   <Text style={styles.legendText}>第一张即封面，长按任意照片可换。</Text>
                 </View>
               )}
+
+              {/* 无图速记入口 */}
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setChatSheet(true)}
+                style={({ pressed }) => [styles.chatModeBtn, { opacity: pressed ? 0.7 : 1 }]}
+              >
+                <MessageSquareText size={14} color={colors.brand} />
+                <Text style={styles.chatModeBtnText}>暂无实物照片？使用 AI 对话极速推断刊登 (示意图)</Text>
+              </Pressable>
             </View>
           </ListSection>
 
@@ -408,6 +497,41 @@ export function CreateListingScreen({ navigation }: { navigation?: Nav }) {
           </View>
         </ScrollView>
       </Sheet>
+
+      {/* ------------------------------------------------ 💬 无图速记对话 Sheet */}
+      <Sheet visible={chatSheet} onClose={() => setChatSheet(false)} title="💬 AI 对话速记刊登">
+        <Text style={styles.sheetHint}>
+          简单描述你想转让的家具（如型号、颜色、使用情况），AI 会自动匹配官方参考图并估价填单。
+        </Text>
+        <TextInput
+          placeholder="例如：家里转让一个宜家白色毕利五层书架，九成新..."
+          value={chatText}
+          onChangeText={setChatText}
+          placeholderTextColor={colors.tertiaryLabel}
+          style={styles.chatInputBox}
+          multiline
+        />
+        <View style={styles.quickTagsRow}>
+          <Text style={[typography.caption2, { color: colors.secondaryLabel }]}>快捷填入：</Text>
+          {['白色毕利书架', '波昂扶手椅', '马尔姆双人床', '索德汉沙发'].map((tag) => (
+            <Pressable
+              key={tag}
+              onPress={() => setChatText(`转让自用${tag}`)}
+              style={styles.quickTagChip}
+            >
+              <Text style={styles.quickTagText}>{tag}</Text>
+            </Pressable>
+          ))}
+        </View>
+        <View style={{ gap: spacing.sm, marginTop: spacing.md }}>
+          <PrimaryButton
+            title="✨ AI 智能匹配并自动填单"
+            disabled={!chatText.trim()}
+            onPress={() => handleChatToList(chatText)}
+          />
+          <SecondaryButton title="取消" onPress={() => setChatSheet(false)} />
+        </View>
+      </Sheet>
     </Screen>
   );
 }
@@ -419,6 +543,102 @@ export default CreateListingScreen;
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { paddingBottom: spacing.xxxl },
+
+  trustBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginHorizontal: spacing.screen,
+    marginBottom: spacing.sm,
+    backgroundColor: 'rgba(0,88,163,0.06)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 7,
+    borderRadius: radius.md,
+  },
+  trustBannerText: {
+    ...typography.caption,
+    color: colors.brand,
+    fontWeight: '600',
+    flex: 1,
+  },
+  aiBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginHorizontal: spacing.screen,
+    marginBottom: spacing.sm,
+    backgroundColor: colors.condLikeNewBg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+    borderRadius: radius.md,
+  },
+  aiBannerText: {
+    ...typography.footnote,
+    color: colors.condLikeNewFg,
+    fontWeight: '600',
+    flex: 1,
+  },
+  warningBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginHorizontal: spacing.screen,
+    marginBottom: spacing.sm,
+    backgroundColor: colors.condFairBg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+    borderRadius: radius.md,
+  },
+  warningBannerText: {
+    ...typography.footnote,
+    color: colors.condFairFg,
+    fontWeight: '600',
+    flex: 1,
+  },
+  chatModeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: spacing.md,
+    paddingVertical: 8,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.gray6,
+    borderRadius: radius.sm,
+  },
+  chatModeBtnText: {
+    ...typography.caption,
+    color: colors.brand,
+    fontWeight: '600',
+  },
+  chatInputBox: {
+    ...typography.body,
+    backgroundColor: colors.gray6,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    minHeight: 76,
+    textAlignVertical: 'top',
+    color: colors.label,
+  },
+  quickTagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: spacing.sm,
+  },
+  quickTagChip: {
+    backgroundColor: colors.cardBg,
+    borderWidth: 1,
+    borderColor: colors.gray4,
+    borderRadius: radius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  quickTagText: {
+    ...typography.caption2,
+    color: colors.label,
+  },
 
   photoCard: { padding: spacing.lg },
   progressRow: {

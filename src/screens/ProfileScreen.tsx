@@ -1,20 +1,22 @@
 /**
- * IKEAR「我的」屏 —— M4 生命周期 / 过期与通知里程碑（UI）。
+ * IKEAR「综合管理 Hub / 我的」屏 —— 极简 5 屏核心枢纽。
  *
- * 承载 PRODUCT_SPEC「二、2 商品生命周期 / 过期」的卖家侧全部操作：
- *   · TTL 30 天，临期 3 天（lib/expiry.needsRefreshReminder）推「一键刷新」→ 赠 24h 曝光；
- *   · 「降价重上架」重置 TTL 并打「降价」标；
- *   · 过期降权归档、卖家仍可见，可标已售 / 下架 / 重新激活；
- *   · Face ID 锁开关（App.tsx 已接锁屏流程，这里只负责开关与验证）。
- *
- * 所有写操作一律走 store action，本屏不持有任何业务规则：
- *   refreshListing / discountRelist / markSold / archiveListing / setBiometric / toggleFavorite
- *
- * 状态展示口径：以 expiresAt 惰性结算（与 dataSource.settleStatus 一致），
- * 因此「刷新」后过期商品会自动回到「在售」分区，无需额外改 status。
+ * 整合三大高频模块：
+ *   1. 📦 [在售管理]：商品生命周期、一键刷新赠 24h 曝光、降价重上架、卖家诚信等级徽章；
+ *   2. 💬 [议价消息]：买卖家即时协商、未读消息汇聚、直达 1v1 聊天；
+ *   3. ⚙️ [偏好设置]：支持 9 大主流语言无缝热切换（简中/繁中/英/法/西/日/韩/德/瑞典）、Face ID 生物锁。
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import {
   Avatar,
   Badge,
@@ -41,22 +43,32 @@ import {
   needsRefreshReminder,
 } from '../lib/expiry';
 import { authenticate, getBiometricSupport } from '../lib/biometrics';
-import { formatPrice } from '../lib/format';
+import { clockTime, formatPrice } from '../lib/format';
 import { getCategory } from '../data/categories';
-import type { Listing } from '../data/types';
+import type { Listing, Message } from '../data/types';
 import { colors, radius, shadows, spacing, typography } from '../theme/tokens';
+import {
+  SUPPORTED_LANGUAGES,
+  SupportedLanguage,
+  t,
+} from '../lib/i18n';
+import { getTrustProfile } from '../lib/aiEstimate';
 import {
   AlertTriangle,
   Archive,
+  Check,
   CheckCircle2,
   Clock,
   Fingerprint,
+  Globe,
   Heart,
   Info,
   LogOut,
+  MessageCircle,
   Package,
   RefreshCw,
   Settings,
+  ShieldCheck,
   ShoppingBag,
   TrendingDown,
 } from 'lucide-react-native';
@@ -64,6 +76,7 @@ import {
 /* ------------------------------------------------------------------ 展示口径 */
 
 type Bucket = 'active' | 'expired' | 'sold' | 'archived';
+type HubSection = 'listings' | 'messages' | 'settings';
 
 const BUCKET_META: Record<Bucket, { label: string; badge: string; tone: BadgeTone }> = {
   active: { label: '在售', badge: '在售', tone: 'success' },
@@ -74,24 +87,18 @@ const BUCKET_META: Record<Bucket, { label: string; badge: string; tone: BadgeTon
 
 const BUCKET_ORDER: Bucket[] = ['active', 'expired', 'sold', 'archived'];
 
-/** 惰性结算：sold/archived 以 status 为准，其余按 expiresAt 判定是否过期。 */
 function bucketOf(l: Listing, now: number): Bucket {
   if (l.status === 'sold') return 'sold';
   if (l.status === 'archived') return 'archived';
   return isExpired(l, now) ? 'expired' : 'active';
 }
 
-/** 赠送的 24h 曝光是否仍在生效。 */
 function boostLeftHours(l: Listing, now: number): number | null {
   if (!l.boostedUntil) return null;
   const left = new Date(l.boostedUntil).getTime() - now;
   return left > 0 ? Math.max(1, Math.ceil(left / HOUR_MS)) : null;
 }
 
-/**
- * 降价标。契约漂移兜底：data/types 里 discount 是百分比数字，
- * store.discountRelist 写入的是 { from, to, at }，两种都要能渲染。
- */
 function discountLabel(raw: unknown): string | null {
   if (raw == null) return null;
   if (typeof raw === 'number') return raw > 0 ? `降价 ${raw}%` : null;
@@ -110,7 +117,6 @@ function coverOf(l: Listing): string {
   return photos[l.coverIndex ?? 0] ?? photos[0] ?? getCategory(l.category)?.emoji ?? '🪑';
 }
 
-/** 「剩 2 天 / 已过期 6 天」 */
 function expiryText(l: Listing, bucket: Bucket, now: number): string {
   const days = daysUntilExpiry(l, now);
   if (!Number.isFinite(days)) return '长期有效';
@@ -118,6 +124,16 @@ function expiryText(l: Listing, bucket: Bucket, now: number): string {
   if (bucket === 'archived') return '已下架，可降价重上架';
   if (bucket === 'expired') return `已过期 ${Math.abs(days)} 天`;
   return days <= 0 ? '今天到期' : `剩 ${days} 天到期`;
+}
+
+function threadTime(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+  return sameDay ? clockTime(iso) : `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
 /* ------------------------------------------------------------------ 我的发布卡片 */
@@ -184,7 +200,6 @@ function ListingItem({
         </View>
       </Pressable>
 
-      {/* 临期 / 过期 —— 把「一键刷新」升级成显性主操作（PRODUCT_SPEC 增长钩子） */}
       {(soon || bucket === 'expired') && (
         <View style={styles.pushWrap}>
           <View style={styles.pushHint}>
@@ -249,7 +264,7 @@ function ListingItem({
   );
 }
 
-/* ------------------------------------------------------------------ 屏幕 */
+/* ------------------------------------------------------------------ 屏幕主组件 */
 
 export function ProfileScreen({ navigation }: any) {
   const currentUser = useStore((s) => s.currentUser);
@@ -265,22 +280,66 @@ export function ProfileScreen({ navigation }: any) {
   const toggleFavorite = useStore((s) => s.toggleFavorite);
   const isFavorite = useStore((s) => s.isFavorite);
   const logout = useStore((s) => s.logout);
+  const language = (useStore((s) => s.language) ?? 'zh-CN') as SupportedLanguage;
+  const setLanguage = useStore((s) => s.setLanguage);
+  const messages = useStore((s) => s.messages);
 
   const [tab, setTab] = useState<Bucket>('active');
+  const [hubSection, setHubSection] = useState<HubSection>('listings');
+  const [langSheet, setLangSheet] = useState(false);
   const [bioBusy, setBioBusy] = useState(false);
   const [flash, setFlash] = useState<{ id: string; text: string } | null>(null);
   const [priceTarget, setPriceTarget] = useState<Listing | null>(null);
   const [priceInput, setPriceInput] = useState('');
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 每次渲染取一次「现在」，保证同屏所有到期判断口径一致
   const now = Date.now();
-  const myId = currentUser?.id;
+  const myId = currentUser?.id ?? 'u_me';
 
   const mine = useMemo(
     () => allListings.filter((l) => (l.sellerId ?? l.seller_id) === myId),
     [allListings, myId]
   );
+
+  // 卖家诚信画像
+  const trustProfile = useMemo(
+    () => getTrustProfile(currentUser?.rating ?? 4.9, mine.length + 3, true),
+    [currentUser?.rating, mine.length]
+  );
+
+  // 议价对话聚合 (按商品+聊天对象)
+  const threads = useMemo(() => {
+    const at = (m: Message) => new Date(m.created_at).getTime();
+    const nameOf = (m: Message, peerId: string) => {
+      if (m.sender_id === peerId && m.sender?.nickname) return m.sender.nickname;
+      const seller = allListings.find((l) => l.id === m.listing_id)?.seller;
+      if (seller && seller.id === peerId && seller.nickname) return seller.nickname;
+      return '宜家邻居';
+    };
+    const map = new Map<string, any>();
+    messages.forEach((m) => {
+      const peerId = m.sender_id === myId ? m.receiver_id : m.sender_id;
+      const key = `${m.listing_id}|${peerId}`;
+      const unreadInc = m.sender_id === peerId && !m.read ? 1 : 0;
+      const prev = map.get(key);
+      if (!prev) {
+        map.set(key, {
+          key,
+          listingId: m.listing_id,
+          peerId,
+          peerName: nameOf(m, peerId),
+          last: m,
+          unread: unreadInc,
+        });
+        return;
+      }
+      prev.unread += unreadInc;
+      if (at(m) >= at(prev.last)) prev.last = m;
+    });
+    return Array.from(map.values()).sort((a, b) => at(b.last) - at(a.last));
+  }, [messages, allListings, myId]);
+
+  const totalUnread = threads.reduce((n, t) => n + t.unread, 0);
 
   const grouped = useMemo(() => {
     const acc: Record<Bucket, Listing[]> = { active: [], expired: [], sold: [], archived: [] };
@@ -294,7 +353,6 @@ export function ProfileScreen({ navigation }: any) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mine, Math.floor(now / 60_000)]);
 
-  /** 需要卖家处理的：临期 active + 已过期 */
   const needAttention = useMemo(
     () => [...grouped.active.filter((l) => needsRefreshReminder(l, now)), ...grouped.expired],
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -322,8 +380,8 @@ export function ProfileScreen({ navigation }: any) {
   /* ---------------------------------------------------------- 生命周期动作 */
 
   const onRefresh = (l: Listing) => {
-    refreshListing(l.id); // 重置 TTL 30 天 + 赠 24h 曝光（boostedUntil）
-    showFlash(l.id, `已刷新 · 已赠 24h 曝光，有效期重置为 ${TTL_DAYS} 天`);
+    refreshListing(l.id);
+    showFlash(l.id, `已刷新 · 赠 24h 曝光，有效期重置为 ${TTL_DAYS} 天`);
   };
 
   const onRefreshAll = () => {
@@ -354,7 +412,7 @@ export function ProfileScreen({ navigation }: any) {
   const submitDiscount = () => {
     if (!priceTarget || !priceValid) return;
     const id = priceTarget.id;
-    discountRelist(id, Math.round(nextPrice)); // 改价 + 打降价标 + 重置 TTL + 回到 active
+    discountRelist(id, Math.round(nextPrice));
     closeDiscount();
     setTab('active');
     showFlash(id, `已降价重上架 · 有效期重置为 ${TTL_DAYS} 天`);
@@ -411,7 +469,19 @@ export function ProfileScreen({ navigation }: any) {
   const openListing = (id: string) =>
     navigation?.getParent?.()?.navigate('ListingDetail', { id });
 
-  /* ---------------------------------------------------------- 渲染 */
+  const currentLangMeta =
+    SUPPORTED_LANGUAGES.find((item) => item.code === language) ?? SUPPORTED_LANGUAGES[0];
+
+  /* ---------------------------------------------------------- 渲染 Hub 顶部分段 */
+
+  const hubOptions = [
+    { value: 'listings' as const, label: `📦 ${t('tab_my_listings', language)}` },
+    {
+      value: 'messages' as const,
+      label: `💬 ${t('tab_messages', language)}${totalUnread > 0 ? ` (${totalUnread})` : ''}`,
+    },
+    { value: 'settings' as const, label: `⚙️ ${t('tab_settings', language)}` },
+  ];
 
   const tabOptions = BUCKET_ORDER.map((b) => ({
     value: b,
@@ -423,206 +493,335 @@ export function ProfileScreen({ navigation }: any) {
   return (
     <Screen scroll contentContainerStyle={styles.scrollPad}>
       <LargeTitleHeader
-        title="我的"
+        title={t('hub_title', language)}
+        subtitle="极简 5 屏控制台 · 在售 / 议价 / 系统设置"
         right={
           <Pressable
             hitSlop={8}
             accessibilityRole="button"
-            accessibilityLabel="设置"
-            onPress={() => Alert.alert('设置', '通知、隐私与账号设置将在后续版本开放。')}
+            accessibilityLabel="切换语言"
+            onPress={() => setLangSheet(true)}
+            style={styles.langPill}
           >
-            <Settings size={22} color={colors.label} />
+            <Globe size={16} color={colors.brand} />
+            <Text style={styles.langPillText}>{currentLangMeta.flag}</Text>
           </Pressable>
         }
       />
 
-      {/* ---- 用户卡 ---- */}
-      <View style={[styles.userCard, shadows.card]}>
-        <Avatar name={currentUser?.nickname ?? '?'} emoji="🧑" size={56} />
-        <View style={{ flex: 1 }}>
-          <Text style={typography.title3} numberOfLines={1}>
-            {currentUser?.nickname ?? '未登录'}
-          </Text>
-          <Text style={styles.userMeta} numberOfLines={1}>
-            {currentUser?.city ?? '未设置城市'} · {mine.length} 件发布
-          </Text>
-        </View>
-        {typeof currentUser?.rating === 'number' && (
-          <Badge label={`⭐ ${currentUser.rating.toFixed(1)}`} tone="neutral" />
-        )}
-      </View>
-
-      {/* ---- 统计 ---- */}
-      <View style={[styles.stats, shadows.card]}>
-        <Stat icon={<Package size={17} color={colors.brand} />} value={mine.length} label="发布" />
-        <View style={styles.statDivider} />
-        <Stat icon={<Heart size={17} color={colors.red} />} value={favorites.length} label="收藏" />
-        <View style={styles.statDivider} />
-        <Stat
-          icon={<ShoppingBag size={17} color={colors.green} />}
-          value={grouped.sold.length}
-          label="售出"
-        />
-      </View>
-
-      {/* ---- 临期 / 过期提醒（站内信兜底，替代 push） ---- */}
-      {needAttention.length > 0 && (
-        <View style={styles.banner}>
-          <View style={styles.bannerHead}>
-            <AlertTriangle size={17} color={colors.condFairFg} />
-            <Text style={styles.bannerTitle}>{needAttention.length} 件商品需要处理</Text>
-          </View>
-          <Text style={styles.bannerBody}>
-            {grouped.expired.length > 0 && `${grouped.expired.length} 件已过期，`}
-            剩余 {REFRESH_REMINDER_DAYS} 天内到期的商品刷新后可重置 {TTL_DAYS} 天有效期，并赠 24h
-            曝光。
-          </Text>
-          <PrimaryButton
-            title={`全部刷新（${needAttention.length}）`}
-            icon={<RefreshCw size={16} color={colors.onBrand} />}
-            onPress={onRefreshAll}
-            style={{ marginTop: spacing.md }}
-          />
-        </View>
-      )}
-
-      {/* ---- 我的发布：在售 / 已过期 / 已售 / 归档 ---- */}
-      <View style={styles.sectionHead}>
-        <Text style={styles.sectionTitle}>我的发布</Text>
-      </View>
+      {/* 3 合 1 核心枢纽切换：在售管理 | 议价消息 | 偏好设置 */}
       <SegmentedControl
-        options={tabOptions}
-        value={tab}
-        onChange={setTab}
-        style={styles.segmented}
+        options={hubOptions}
+        value={hubSection}
+        onChange={setHubSection}
+        style={styles.hubSegmented}
       />
 
-      {list.length === 0 ? (
-        <EmptyState
-          icon={<EmptyIcon bucket={tab} />}
-          title={EMPTY_TITLE[tab]}
-          message={EMPTY_MESSAGE[tab]}
-        />
-      ) : (
-        <View style={styles.cardList}>
-          {list.map((l) => (
-            <ListingItem
-              key={l.id}
-              listing={l}
-              now={now}
-              bucket={tab}
-              flash={flash?.id === l.id ? flash.text : undefined}
-              onOpen={() => openListing(l.id)}
-              onRefresh={() => onRefresh(l)}
-              onDiscount={() => openDiscount(l)}
-              onSold={() => onSold(l)}
-              onArchive={() => onArchive(l)}
+      {/* =========================================================================
+          分区 1：在售管理 (My Listings)
+      ========================================================================= */}
+      {hubSection === 'listings' && (
+        <View>
+          {/* 用户名片 & 诚信等级徽章 */}
+          <View style={[styles.userCard, shadows.card]}>
+            <Avatar name={currentUser?.nickname ?? 'IKEAR'} emoji="🧑" size={56} />
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={typography.title3} numberOfLines={1}>
+                  {currentUser?.nickname ?? '未登录'}
+                </Text>
+                <Badge
+                  label={`${trustProfile.badge} · ${trustProfile.score}分`}
+                  tone={
+                    trustProfile.tier === 'crown'
+                      ? 'brand'
+                      : trustProfile.tier === 'gold'
+                      ? 'warning'
+                      : 'neutral'
+                  }
+                />
+              </View>
+              <Text style={styles.userMeta} numberOfLines={1}>
+                {currentUser?.city ?? '未设置城市'} · {mine.length} 件发布 · 优先曝光加成{' '}
+                {trustProfile.exposureMultiplier}x
+              </Text>
+            </View>
+          </View>
+
+          {/* 统计指标 */}
+          <View style={[styles.stats, shadows.card]}>
+            <Stat
+              icon={<Package size={17} color={colors.brand} />}
+              value={mine.length}
+              label={t('tab_my_listings', language)}
             />
-          ))}
+            <View style={styles.statDivider} />
+            <Stat
+              icon={<Heart size={17} color={colors.red} />}
+              value={favorites.length}
+              label="收藏"
+            />
+            <View style={styles.statDivider} />
+            <Stat
+              icon={<ShoppingBag size={17} color={colors.green} />}
+              value={grouped.sold.length}
+              label="已售出"
+            />
+          </View>
+
+          {/* 临期 / 过期处理横幅 */}
+          {needAttention.length > 0 && (
+            <View style={styles.banner}>
+              <View style={styles.bannerHead}>
+                <AlertTriangle size={17} color={colors.condFairFg} />
+                <Text style={styles.bannerTitle}>{needAttention.length} 件商品需要处理</Text>
+              </View>
+              <Text style={styles.bannerBody}>
+                {grouped.expired.length > 0 && `${grouped.expired.length} 件已过期，`}
+                剩余 {REFRESH_REMINDER_DAYS} 天内到期的商品刷新后可重置 {TTL_DAYS} 天有效期，并赠
+                24h 曝光。
+              </Text>
+              <PrimaryButton
+                title={`全部刷新（${needAttention.length}）`}
+                icon={<RefreshCw size={16} color={colors.onBrand} />}
+                onPress={onRefreshAll}
+                style={{ marginTop: spacing.md }}
+              />
+            </View>
+          )}
+
+          {/* 在售 / 已过期 / 已售 / 归档 */}
+          <View style={styles.sectionHead}>
+            <Text style={styles.sectionTitle}>商品状态</Text>
+          </View>
+          <SegmentedControl
+            options={tabOptions}
+            value={tab}
+            onChange={setTab}
+            style={styles.segmented}
+          />
+
+          {list.length === 0 ? (
+            <EmptyState
+              icon={<EmptyIcon bucket={tab} />}
+              title={EMPTY_TITLE[tab]}
+              message={EMPTY_MESSAGE[tab]}
+            />
+          ) : (
+            <View style={styles.cardList}>
+              {list.map((l) => (
+                <ListingItem
+                  key={l.id}
+                  listing={l}
+                  now={now}
+                  bucket={tab}
+                  flash={flash?.id === l.id ? flash.text : undefined}
+                  onOpen={() => openListing(l.id)}
+                  onRefresh={() => onRefresh(l)}
+                  onDiscount={() => openDiscount(l)}
+                  onSold={() => onSold(l)}
+                  onArchive={() => onArchive(l)}
+                />
+              ))}
+            </View>
+          )}
+
+          {/* 我的收藏快捷入口 */}
+          <ListSection header="我的收藏" style={styles.section}>
+            {favoriteListings.slice(0, 3).map((l, i, arr) => (
+              <ListRow
+                key={l.id}
+                title={l.title}
+                subtitle={`${formatPrice(l.price)} · ${getCategory(l.category)?.name ?? '其他'}`}
+                onPress={() => openListing(l.id)}
+                accessory={
+                  <Pressable
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel="取消收藏"
+                    onPress={() => toggleFavorite(l.id)}
+                  >
+                    <Heart
+                      size={19}
+                      color={colors.red}
+                      fill={isFavorite(l.id) ? colors.red : 'transparent'}
+                    />
+                  </Pressable>
+                }
+                last={i === arr.length - 1 && favoriteListings.length <= 3}
+              />
+            ))}
+            {favoriteListings.length > 3 && (
+              <ListRow
+                title="查看全部收藏"
+                icon={<Heart size={19} color={colors.red} />}
+                value={`${favoriteListings.length}`}
+                chevron
+                last
+                onPress={() => navigation?.getParent?.()?.navigate('Favorites')}
+              />
+            )}
+            {favoriteListings.length === 0 && (
+              <ListRow
+                title="我的收藏"
+                subtitle="还没有收藏，去首页逛逛"
+                icon={<Heart size={19} color={colors.red} />}
+                chevron
+                last
+                onPress={() => navigation?.getParent?.()?.navigate('Favorites')}
+              />
+            )}
+          </ListSection>
         </View>
       )}
 
-      {/* ---- 我的收藏 ---- */}
-      <ListSection header="我的收藏" style={styles.section}>
-        {favoriteListings.slice(0, 3).map((l, i, arr) => (
-          <ListRow
-            key={l.id}
-            title={l.title}
-            subtitle={`${formatPrice(l.price)} · ${getCategory(l.category)?.name ?? '其他'}`}
-            onPress={() => openListing(l.id)}
-            accessory={
-              <Pressable
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityLabel="取消收藏"
-                onPress={() => toggleFavorite(l.id)}
-              >
-                <Heart
-                  size={19}
-                  color={colors.red}
-                  fill={isFavorite(l.id) ? colors.red : 'transparent'}
-                />
-              </Pressable>
-            }
-            last={i === arr.length - 1 && favoriteListings.length <= 3}
-          />
-        ))}
-        {favoriteListings.length > 3 && (
-          <ListRow
-            title="查看全部收藏"
-            icon={<Heart size={19} color={colors.red} />}
-            value={`${favoriteListings.length}`}
-            chevron
-            last
-            onPress={() => navigation?.getParent?.()?.navigate('Favorites')}
-          />
-        )}
-        {favoriteListings.length === 0 && (
-          <ListRow
-            title="我的收藏"
-            subtitle="还没有收藏，去首页逛逛"
-            icon={<Heart size={19} color={colors.red} />}
-            chevron
-            last
-            onPress={() => navigation?.getParent?.()?.navigate('Favorites')}
-          />
-        )}
-      </ListSection>
-
-      {/* ---- 安全：Face ID 锁 ---- */}
-      <ListSection
-        header="安全"
-        footer="开启后每次进入 App 需通过 Face ID / 触控 ID 验证。"
-        style={styles.section}
-      >
-        <ListRow
-          title="生物识别锁"
-          subtitle={biometricEnabled ? '已开启 · Face ID 保护' : '使用 Face ID 保护账户'}
-          icon={<Fingerprint size={20} color={colors.brand} />}
-          last
-          accessory={
-            <Switch
-              value={biometricEnabled}
-              onValueChange={onToggleBiometric}
-              disabled={bioBusy}
-              trackColor={{ false: colors.gray4, true: colors.brand }}
-              ios_backgroundColor={colors.gray4}
+      {/* =========================================================================
+          分区 2：议价消息 (Messages & Negotiation)
+      ========================================================================= */}
+      {hubSection === 'messages' && (
+        <View style={{ marginTop: spacing.md }}>
+          {threads.length === 0 ? (
+            <EmptyState
+              emoji="💬"
+              title="还没有议价消息"
+              message="在任何二手商品详情页点击「联系卖家 / 议价」即可发起实时沟通。"
             />
-          }
-        />
-      </ListSection>
+          ) : (
+            <ListSection header={`最近议价沟通 (${threads.length})`}>
+              {threads.map((t, i) => (
+                <ListRow
+                  key={t.key}
+                  icon={<Avatar name={t.peerName} emoji="🧑" size={44} />}
+                  title={t.peerName}
+                  subtitle={t.last.content}
+                  value={threadTime(t.last.created_at)}
+                  accessory={
+                    t.unread > 0 ? (
+                      <Badge label={t.unread} count style={{ marginLeft: spacing.sm }} />
+                    ) : undefined
+                  }
+                  chevron
+                  last={i === threads.length - 1}
+                  onPress={() =>
+                    navigation?.getParent?.()?.navigate('Chat', {
+                      listingId: t.listingId,
+                      peerId: t.peerId,
+                      sellerId: t.peerId,
+                    })
+                  }
+                />
+              ))}
+            </ListSection>
+          )}
+        </View>
+      )}
 
-      {/* ---- 设置 / 关于 ---- */}
-      <ListSection header="设置" style={styles.section}>
-        <ListRow
-          title="到期提醒"
-          subtitle={`临期 ${REFRESH_REMINDER_DAYS} 天站内提醒`}
-          icon={<Clock size={20} color={colors.secondaryLabel} />}
-          value="已开启"
-          chevron
-          onPress={() => Alert.alert('到期提醒', '推送通道将在 M5 接入，当前使用站内提醒 + 角标。')}
-        />
-        <ListRow
-          title="关于 IKEAR"
-          icon={<Info size={20} color={colors.secondaryLabel} />}
-          chevron
-          onPress={() => Alert.alert('IKEAR', '二手家具集市 v1.0.0\n让好家具继续流通 ♻️')}
-        />
-        <ListRow
-          title="退出登录"
-          icon={<LogOut size={20} color={colors.red} />}
-          destructive
-          last
-          onPress={() =>
-            Alert.alert('退出登录', '确定要退出当前账户吗？', [
-              { text: '取消', style: 'cancel' },
-              { text: '退出', style: 'destructive', onPress: logout },
-            ])
-          }
-        />
-      </ListSection>
+      {/* =========================================================================
+          分区 3：偏好设置 (Settings & 9 Languages)
+      ========================================================================= */}
+      {hubSection === 'settings' && (
+        <View>
+          {/* 多语言切换 */}
+          <ListSection
+            header="语言与本地化"
+            footer="切换语言将立即全站热更新，支持全部 9 大主流地区语言。"
+            style={styles.section}
+          >
+            <ListRow
+              title={t('lang_switcher', language)}
+              subtitle="支持中/繁/英/法/西/日/韩/德/瑞典"
+              icon={<Globe size={20} color={colors.brand} />}
+              value={`${currentLangMeta.flag} ${currentLangMeta.name}`}
+              chevron
+              last
+              onPress={() => setLangSheet(true)}
+            />
+          </ListSection>
 
-      {/* ---- 降价重上架 ---- */}
+          {/* 账户安全 */}
+          <ListSection
+            header="安全与隐私"
+            footer="开启后每次进入 App 需通过 Face ID / 触控 ID 验证。"
+            style={styles.section}
+          >
+            <ListRow
+              title={t('biometric_lock', language)}
+              subtitle={biometricEnabled ? '已开启 · 生物识别保护中' : '使用 Face ID 保护账户资产'}
+              icon={<Fingerprint size={20} color={colors.brand} />}
+              last
+              accessory={
+                <Switch
+                  value={biometricEnabled}
+                  onValueChange={onToggleBiometric}
+                  disabled={bioBusy}
+                  trackColor={{ false: colors.gray4, true: colors.brand }}
+                  ios_backgroundColor={colors.gray4}
+                />
+              }
+            />
+          </ListSection>
+
+          {/* 卖家合规与信用 */}
+          <ListSection header="平台规则与信用" style={styles.section}>
+            <ListRow
+              title={t('trust_tier_label', language)}
+              subtitle={`${trustProfile.badge} · 评分 ${currentUser?.rating ?? 4.9} 分`}
+              icon={<ShieldCheck size={20} color={colors.green} />}
+              value={`${trustProfile.score} 分`}
+              chevron
+              onPress={() =>
+                Alert.alert(
+                  '卖家诚信等级',
+                  `当前等级：${trustProfile.badge}\n综合得分：${trustProfile.score} 分\n当前享受曝光加成：${trustProfile.exposureMultiplier}x。\n提示：多传实拍照片、按时履约可迅速提升诚信分。`
+                )
+              }
+            />
+            <ListRow
+              title="到期提醒与曝光机制"
+              subtitle={`临期 ${REFRESH_REMINDER_DAYS} 天站内提醒，刷新赠 24h 曝光`}
+              icon={<Clock size={20} color={colors.secondaryLabel} />}
+              value="已开启"
+              chevron
+              onPress={() =>
+                Alert.alert(
+                  '到期机制',
+                  `闲置挂牌有效期为 ${TTL_DAYS} 天，到期前 ${REFRESH_REMINDER_DAYS} 天系统将提醒您刷新。一键刷新即可获得 24 小时首页曝光扶持。`
+                )
+              }
+            />
+            <ListRow
+              title="关于 IKEAR 与版权声明"
+              icon={<Info size={20} color={colors.secondaryLabel} />}
+              chevron
+              last
+              onPress={() =>
+                Alert.alert(
+                  '关于 IKEAR',
+                  'IKEAR 二手家具集市 v1.0.0\n\n本平台为第三方独立二手流通撮合工具，与宜家 (Inter IKEA Systems B.V.) 无隶属关联。所有官方参考图仅用于型号对照示意，严禁商标混淆。让北欧设计继续流通 ♻️'
+                )
+              }
+            />
+          </ListSection>
+
+          {/* 退出登录 */}
+          <ListSection style={styles.section}>
+            <ListRow
+              title={t('logout', language)}
+              icon={<LogOut size={20} color={colors.red} />}
+              destructive
+              last
+              onPress={() =>
+                Alert.alert('退出登录', '确定要退出当前账户吗？', [
+                  { text: '取消', style: 'cancel' },
+                  { text: '退出', style: 'destructive', onPress: logout },
+                ])
+              }
+            />
+          </ListSection>
+        </View>
+      )}
+
+      {/* ---- 降价重上架弹窗 ---- */}
       <Sheet visible={!!priceTarget} onClose={closeDiscount} title="降价重上架">
         {!!priceTarget && (
           <View style={{ gap: spacing.md }}>
@@ -677,6 +876,45 @@ export function ProfileScreen({ navigation }: any) {
           </View>
         )}
       </Sheet>
+
+      {/* ---- 全球 9 大主流语言切换抽屉 (Language Selection Sheet) ---- */}
+      <Sheet
+        visible={langSheet}
+        onClose={() => setLangSheet(false)}
+        title={t('lang_switcher', language)}
+      >
+        <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
+          <View style={{ gap: spacing.xs, paddingVertical: spacing.xs }}>
+            {SUPPORTED_LANGUAGES.map((item) => {
+              const active = item.code === language;
+              return (
+                <Pressable
+                  key={item.code}
+                  style={[styles.langRow, active && styles.langRowActive]}
+                  onPress={() => {
+                    setLanguage(item.code);
+                    setLangSheet(false);
+                  }}
+                >
+                  <Text style={styles.langFlag}>{item.flag}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={[
+                        typography.subhead,
+                        active && { color: colors.brand, fontWeight: '700' },
+                      ]}
+                    >
+                      {item.name}
+                    </Text>
+                    <Text style={styles.langCode}>{item.code}</Text>
+                  </View>
+                  {active && <Check size={18} color={colors.brand} strokeWidth={2.5} />}
+                </Pressable>
+              );
+            })}
+          </View>
+        </ScrollView>
+      </Sheet>
     </Screen>
   );
 }
@@ -720,6 +958,25 @@ function EmptyIcon({ bucket }: { bucket: Bucket }) {
 const styles = StyleSheet.create({
   scrollPad: { paddingBottom: 110 },
 
+  langPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.gray6,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.separator,
+  },
+  langPillText: { fontSize: 14 },
+
+  hubSegmented: {
+    marginHorizontal: spacing.screen,
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+
   userCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -728,9 +985,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: spacing.lg,
     marginHorizontal: spacing.screen,
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
   },
-  userMeta: { ...typography.footnote, color: colors.secondaryLabel, marginTop: 3 },
+  userMeta: { ...typography.footnote, color: colors.secondaryLabel, marginTop: 4 },
 
   stats: {
     flexDirection: 'row',
@@ -838,4 +1095,21 @@ const styles = StyleSheet.create({
   priceInput: { ...typography.title2, color: colors.label, flex: 1, padding: 0 },
   presetRow: { flexDirection: 'row', gap: spacing.sm },
   sheetError: { ...typography.caption, color: colors.red },
+
+  langRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: radius.md,
+    backgroundColor: colors.cardBg,
+    gap: 12,
+  },
+  langRowActive: {
+    backgroundColor: colors.tintBlue,
+    borderWidth: 1,
+    borderColor: colors.brand,
+  },
+  langFlag: { fontSize: 24 },
+  langCode: { ...typography.caption, color: colors.secondaryLabel, marginTop: 2 },
 });

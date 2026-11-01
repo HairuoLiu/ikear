@@ -76,6 +76,40 @@ export interface SendMessageInput {
 }
 
 // ---------------------------------------------------------------------------
+// 卖家诚信等级系统 (Trust & Integrity Tier)
+// ---------------------------------------------------------------------------
+
+export type TrustTier = 'bronze' | 'silver' | 'gold' | 'crown';
+
+export interface TrustProfile {
+  score: number; // 0 - 100 综合诚信分
+  tier: TrustTier;
+  label: string; // "铜牌卖家" | "银牌诚信" | "金牌优选" | "皇冠信赖"
+  badgeIcon: string;
+  verifiedPhone: boolean;
+  verifiedID: boolean;
+  dealsCompleted: number; // 历史成交家具数
+  disputeRate: number; // 纠纷率 (0.00 - 1.00)
+}
+
+// ---------------------------------------------------------------------------
+// 刊登模式与 AI 识别元数据
+// ---------------------------------------------------------------------------
+
+export type ListingMode = 'ai_photo' | 'manual' | 'no_photo_chat';
+
+export interface AIRecognitionMeta {
+  detectedModel?: string; // 识别出的宜家型号 (如 "POÄNG", "BILLY")
+  confidence?: number; // 识别置信度 (0.0 - 1.0)
+  msrpPrice?: number; // 官方原价参考 (加元/人民币)
+  estimatedPriceLow?: number; // 推荐转让区间低
+  estimatedPriceHigh?: number; // 推荐转让区间高
+  suggestedCondition?: Condition; // 建议成色
+  isReferencePhoto?: boolean; // 是否为无图模式下的参考示意图
+  photoQualityBonus?: number; // 照片完备度加权 (0.35 ~ 1.30)
+}
+
+// ---------------------------------------------------------------------------
 // Listing
 // ---------------------------------------------------------------------------
 
@@ -86,7 +120,7 @@ export interface Listing extends LegacyListingFields {
   price: number;
   condition: Condition;
   category: CategoryId;
-  photos: string[]; // mock 模式下为 emoji 占位符，真实模式下为 uri
+  photos: string[]; // mock 模式下为 emoji/示意占位符，真实模式下为 uri
   coverIndex: number; // photos 中封面图的下标
   location: Location;
   sellerId: ID;
@@ -96,6 +130,12 @@ export interface Listing extends LegacyListingFields {
   type: ListingType;
   boostedUntil?: string; // ISO，置顶到期时间
   discount?: number; // 0–100，折扣百分比
+
+  // 新增：AI 估价、无图模式与推荐权重
+  listingMode?: ListingMode;
+  aiMeta?: AIRecognitionMeta;
+  sellerTrust?: TrustProfile;
+  rankingScore?: number; // 综合推荐排序分
 }
 
 /**
