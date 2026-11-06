@@ -470,4 +470,52 @@ export const supabaseDataSource: DataSource = {
     const conv = cache.conversations.find((c) => c.id === conversationId);
     if (conv) conv.unreadCount = 0;
   },
+
+  /**
+   * 监听指定用户的实时私聊消息（通过 Supabase Realtime WebSocket 通道）
+   */
+  subscribeMessages(userId: string, onMessage: (msg: Message) => void) {
+    let channel: any = null;
+    let active = true;
+
+    (async () => {
+      try {
+        const client = await getSupabaseClient();
+        if (!active) return;
+        channel = client
+          .channel(`messages:user:${userId}`)
+          .on(
+            'postgres_changes',
+            {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'messages',
+              filter: `receiver_id=eq.${userId}`,
+            },
+            (payload: any) => {
+              if (payload.new) {
+                const msg = mapMessage(payload.new);
+                if (msg.conversationId) {
+                  cache.messages[msg.conversationId] = [
+                    ...(cache.messages[msg.conversationId] ?? []),
+                    msg,
+                  ];
+                }
+                onMessage(msg);
+              }
+            }
+          )
+          .subscribe();
+      } catch (err) {
+        console.error('Failed to subscribe to realtime messages:', err);
+      }
+    })();
+
+    return () => {
+      active = false;
+      if (channel) {
+        channel.unsubscribe();
+      }
+    };
+  },
 };

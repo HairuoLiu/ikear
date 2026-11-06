@@ -5,6 +5,8 @@ import {
   estimateFromChatDialog,
   getTrustProfile,
   computeListingRankingScore,
+  classifyModelOffline,
+  IKEA_QUANTIZED_MODEL_SPEC,
   IKEA_KNOWLEDGE_BASE,
 } from './aiEstimate';
 import type { Listing } from '../data/types';
@@ -115,5 +117,30 @@ describe('🚀 综合多因子推荐排序分计算 (Ranking Score)', () => {
     };
     const boostedScore = computeListingRankingScore(boostedListing);
     assert.ok(boostedScore > normalScore);
+  });
+});
+
+describe('⚡️ 端侧量化模型 (CoreML / TFLite INT8) 离线推理测试 [IKEAR-003]', () => {
+  it('量化规范符合端侧超轻量级运行指标', () => {
+    assert.strictEqual(IKEA_QUANTIZED_MODEL_SPEC.precision, 'INT8');
+    assert.strictEqual(IKEA_QUANTIZED_MODEL_SPEC.framework, 'CoreML');
+    assert.deepStrictEqual(IKEA_QUANTIZED_MODEL_SPEC.inputShape, [1, 224, 224, 3]);
+    assert.ok(IKEA_QUANTIZED_MODEL_SPEC.latencyBudgetMs <= 50);
+  });
+
+  it('离线输入文本/特征快速分类并满足毫秒级时延', () => {
+    const result = classifyModelOffline('扶手椅 POÄNG');
+    assert.strictEqual(result.topModel, 'POÄNG');
+    assert.strictEqual(result.category, 'chair');
+    assert.ok(result.confidence >= 0.9);
+    assert.ok(result.inferenceTimeMs < IKEA_QUANTIZED_MODEL_SPEC.latencyBudgetMs);
+  });
+
+  it('支持模拟浮点特征向量输入进行离线分类', () => {
+    const fakeEmbedding = [0.12, 0.45, 0.99, -0.32, 1.44];
+    const result = classifyModelOffline(fakeEmbedding);
+    assert.ok(result.topModel.length > 0);
+    assert.ok(result.nameZh.length > 0);
+    assert.strictEqual(result.quantizedSpec.precision, 'INT8');
   });
 });

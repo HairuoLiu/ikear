@@ -131,6 +131,11 @@ export interface DataSource {
   toggleFavorite(id: string): Promise<void>;
   /** 将会话内未读消息标记为已读。 */
   markConversationRead(conversationId: string): Promise<void>;
+  /**
+   * 监听指定用户的实时私聊消息（Supabase Realtime WebSocket 或 Mock 事件总线广播）。
+   * 返回取消监听的回调函数。
+   */
+  subscribeMessages?(userId: string, onMessage: (msg: Message) => void): () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -223,6 +228,8 @@ function commit(next: Listing): Listing {
   db = db.map((l) => (l.id === mirrored.id ? mirrored : l));
   return mirrored;
 }
+
+let mockMessageListeners = new Set<(msg: Message) => void>();
 
 export const mockDataSource: DataSource = {
   async getListings(filter = {}) {
@@ -347,6 +354,13 @@ export const mockDataSource: DataSource = {
       conversationId: input.conversationId,
     };
     mockMessages = [...mockMessages, msg];
+    mockMessageListeners.forEach((listener) => {
+      try {
+        listener(msg);
+      } catch (err) {
+        console.error('Error in mockMessageListener:', err);
+      }
+    });
     return msg;
   },
 
@@ -359,12 +373,25 @@ export const mockDataSource: DataSource = {
       c.id === conversationId ? { ...c, unreadCount: 0 } : c
     );
   },
+
+  subscribeMessages(userId: string, onMessage: (msg: Message) => void) {
+    const listener = (msg: Message) => {
+      if (msg.receiver_id === userId || msg.sender_id === userId) {
+        onMessage(msg);
+      }
+    };
+    mockMessageListeners.add(listener);
+    return () => {
+      mockMessageListeners.delete(listener);
+    };
+  },
 };
 
 /** 仅供测试：把内存库恢复成初始 mock 数据。 */
 export function __resetMockDb(): void {
   db = LISTINGS.map((l) => ({ ...l }));
   seq = 0;
+  mockMessageListeners.clear();
 }
 
 /**

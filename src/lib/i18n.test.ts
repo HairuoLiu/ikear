@@ -30,6 +30,8 @@ describe('i18n 多语言引擎 (i18n.ts)', () => {
       'publish_title',
       'trust_tier_label',
       'lang_switcher',
+      'disclaimer_title',
+      'disclaimer_agree',
     ];
     for (const lang of SUPPORTED_LANGUAGES) {
       for (const k of keysToCheck) {

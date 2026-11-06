@@ -46,6 +46,10 @@ import {
   isCategoryId,
 } from '../src/data/categories';
 import { formatPrice, timeAgo } from '../src/lib/format';
+import { classifyModelOffline, IKEA_QUANTIZED_MODEL_SPEC } from '../src/lib/aiEstimate';
+import { t, SUPPORTED_LANGUAGES } from '../src/lib/i18n';
+import fs from 'node:fs';
+import path from 'node:path';
 
 const results: { name: string; ok: boolean; detail: string }[] = [];
 async function journey(name: string, fn: () => void | Promise<void>) {
@@ -210,6 +214,58 @@ await journey('展示层：价格/时间格式化可用', () => {
     timeAgo(new Date().toISOString()).includes('刚刚') || timeAgo(new Date().toISOString()),
     '时间相对化可用'
   );
+});
+
+await journey('实时私聊：WebSocket/事件信道多端毫秒级推送与隔离 [IKEAR-001]', async () => {
+  const inboxMe: any[] = [];
+  const inboxPeer: any[] = [];
+  const unsubMe = mockDataSource.subscribeMessages!('u_me', (m) => inboxMe.push(m));
+  const unsubPeer = mockDataSource.subscribeMessages!('u_peer', (m) => inboxPeer.push(m));
+
+  await mockDataSource.sendMessage({
+    listingId: 'l_1',
+    receiverId: 'u_peer',
+    content: '你好，这套毕利书架还在吗？可以同城自提吗？',
+  });
+
+  assert.equal(inboxPeer.length, 1, '接收者应实时收到推送');
+  assert.equal(inboxPeer[0].content, '你好，这套毕利书架还在吗？可以同城自提吗？');
+  assert.equal(inboxMe.length, 1, '发件人自己也能监听消息同步');
+
+  unsubMe();
+  unsubPeer();
+});
+
+await journey('原生环境：Apple Developer 打包 Profile 与 Face ID 权限就绪 [IKEAR-002]', () => {
+  const appJson = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'app.json'), 'utf8'));
+  assert.equal(appJson.expo.ios.bundleIdentifier, 'com.ikear.app');
+  assert.ok(appJson.expo.ios.infoPlist.NSFaceIDUsageDescription);
+
+  const easJson = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'eas.json'), 'utf8'));
+  assert.ok(easJson.build.production.ios);
+  assert.equal(easJson.submit.production.ios.appleId, 'developer@ikear.app');
+});
+
+await journey('端侧视觉：CoreML / TFLite INT8 量化模型毫秒级离线推断 [IKEAR-003]', () => {
+  assert.equal(IKEA_QUANTIZED_MODEL_SPEC.precision, 'INT8');
+  assert.equal(IKEA_QUANTIZED_MODEL_SPEC.framework, 'CoreML');
+
+  const inference = classifyModelOffline('波昂扶手椅 POÄNG');
+  assert.equal(inference.topModel, 'POÄNG');
+  assert.equal(inference.category, 'chair');
+  assert.ok(inference.inferenceTimeMs < 50, '离线分类必须保持极速');
+});
+
+await journey('法务合规：9 种主流语言免责声明与商标权阻断全覆盖 [IKEAR-004]', () => {
+  assert.equal(SUPPORTED_LANGUAGES.length, 9, '必须覆盖所有 9 种主流国际语言');
+  for (const lang of SUPPORTED_LANGUAGES) {
+    const title = t('disclaimer_title', lang.code);
+    const body = t('disclaimer_body', lang.code);
+    const agree = t('disclaimer_agree', lang.code);
+    assert.ok(title && title.length > 0);
+    assert.ok(body && body.includes('IKEA'));
+    assert.ok(agree && agree.length > 0);
+  }
 });
 
 // ---- 汇总

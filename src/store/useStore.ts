@@ -81,6 +81,9 @@ interface StoreState {
   biometricEnabled: boolean;
   language: SupportedLanguage;
   setLanguage: (lang: SupportedLanguage) => void;
+  disclaimerAccepted: boolean;
+  acceptDisclaimer: () => void;
+  initRealtimeMessages: () => () => void;
 
   // ---- 附加 state（M1 筛选 / M3 消息，非契约但已在用）----
   messages: Message[];
@@ -185,10 +188,10 @@ let msgSeq = 1000;
 export const useStore = create<StoreState>((set, get) => {
   /** 写入需要离线保留的片段 */
   const persist = () => {
-    const { favorites, biometricEnabled, location, sort, drafts } = get();
+    const { favorites, biometricEnabled, location, sort, drafts, language, disclaimerAccepted } = get();
     AsyncStorage.setItem(
       STATE_KEY,
-      JSON.stringify({ favorites, biometricEnabled, location, sort, drafts })
+      JSON.stringify({ favorites, biometricEnabled, location, sort, drafts, language, disclaimerAccepted })
     ).catch(() => {
       /* 持久化失败不影响会话 */
     });
@@ -216,10 +219,28 @@ export const useStore = create<StoreState>((set, get) => {
     sort: 'new',
     biometricEnabled: false,
     language: 'zh-CN',
+    disclaimerAccepted: false,
 
     setLanguage(language) {
       set({ language });
       persist();
+    },
+
+    acceptDisclaimer() {
+      set({ disclaimerAccepted: true });
+      persist();
+    },
+
+    initRealtimeMessages() {
+      const user = get().currentUser;
+      const uid = user?.id ?? 'u_me';
+      if (!dataSource.subscribeMessages) return () => {};
+      return dataSource.subscribeMessages(uid, (incomingMsg) => {
+        const currentMsgs = get().messages;
+        if (!currentMsgs.some((m) => m.id === incomingMsg.id)) {
+          set({ messages: [...currentMsgs, incomingMsg] });
+        }
+      });
     },
 
     messages: MESSAGES,
@@ -553,7 +574,7 @@ export const useStore = create<StoreState>((set, get) => {
         const raw = await AsyncStorage.getItem(STATE_KEY);
         if (!raw) return;
         const saved = JSON.parse(raw) as Partial<
-          Pick<StoreState, 'favorites' | 'biometricEnabled' | 'location' | 'sort' | 'drafts' | 'language'>
+          Pick<StoreState, 'favorites' | 'biometricEnabled' | 'location' | 'sort' | 'drafts' | 'language' | 'disclaimerAccepted'>
         >;
         set({
           favorites: Array.isArray(saved.favorites) ? saved.favorites : [],
@@ -562,6 +583,7 @@ export const useStore = create<StoreState>((set, get) => {
           sort: saved.sort ?? 'new',
           drafts: saved.drafts ?? null,
           language: saved.language ?? 'zh-CN',
+          disclaimerAccepted: !!saved.disclaimerAccepted,
         });
       } catch {
         /* 读档失败时保持默认值 */

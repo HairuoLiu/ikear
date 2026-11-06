@@ -256,6 +256,35 @@ function BiometricLock({ onUnlock }: { onUnlock: () => void }) {
  * Web 响应式外壳：桌面浏览器下把内容约束成居中、最大宽度 480 的「手机列」，
  * 避免移动端布局在宽屏拉伸；原生端（iOS/Android）全屏渲染，不加约束。
  */
+function LegalDisclaimerModal({
+  onAgree,
+  language,
+}: {
+  onAgree: () => void;
+  language: SupportedLanguage;
+}) {
+  return (
+    <View style={styles.disclaimerOverlay} testID="disclaimer-modal">
+      <View style={styles.disclaimerCard}>
+        <View style={styles.disclaimerBadge}>
+          <Text style={styles.disclaimerBadgeText}>⚖️ Legal Notice</Text>
+        </View>
+        <Text style={styles.disclaimerTitle}>{t('disclaimer_title', language)}</Text>
+        <Text style={styles.disclaimerBody}>{t('disclaimer_body', language)}</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('disclaimer_agree', language)}
+          testID="disclaimer-agree-btn"
+          onPress={onAgree}
+          style={({ pressed }) => [styles.disclaimerBtn, pressed && styles.disclaimerBtnPressed]}
+        >
+          <Text style={styles.disclaimerBtnText}>{t('disclaimer_agree', language)}</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 function frame(node: React.ReactNode) {
   if (Platform.OS !== 'web') return <>{node}</>;
   return <View style={styles.webFrame}>{node}</View>;
@@ -264,10 +293,21 @@ function frame(node: React.ReactNode) {
 export default function App() {
   const isAuthenticated = useStore((s) => s.isAuthenticated);
   const biometricEnabled = useStore((s) => s.biometricEnabled);
+  const disclaimerAccepted = useStore((s) => s.disclaimerAccepted);
+  const acceptDisclaimer = useStore((s) => s.acceptDisclaimer);
+  const language = useStore((s) => s.language);
   const loadPersisted = useStore((s) => s.loadPersisted);
   const [booting, setBooting] = useState(true);
   const [splash, setSplash] = useState(true);
   const [unlocked, setUnlocked] = useState(false);
+
+  // 监听并接入实时 WebSocket 私聊通道
+  useEffect(() => {
+    if (isAuthenticated) {
+      const unsub = useStore.getState().initRealtimeMessages?.();
+      return () => unsub?.();
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
     loadPersisted().finally(() => setBooting(false));
@@ -315,30 +355,37 @@ export default function App() {
 
   if (booting || splash) return <SplashScreen />;
 
-  // 登录 / 锁屏都不依赖导航上下文，直接渲染，避免空的 NavigationContainer
+  let content: React.ReactNode;
   if (!isAuthenticated) {
-    return frame(
+    content = (
       <>
         <StatusBar style="dark" />
         <AuthScreen />
       </>
     );
-  }
-
-  if (biometricEnabled && !unlocked) {
-    return frame(
+  } else if (biometricEnabled && !unlocked) {
+    content = (
       <>
         <StatusBar style="dark" />
         <BiometricLock onUnlock={() => setUnlocked(true)} />
       </>
     );
+  } else {
+    content = (
+      <NavigationContainer>
+        <StatusBar style="dark" />
+        <MainStack />
+      </NavigationContainer>
+    );
   }
 
   return frame(
-    <NavigationContainer>
-      <StatusBar style="dark" />
-      <MainStack />
-    </NavigationContainer>
+    <View style={{ flex: 1 }}>
+      {content}
+      {!disclaimerAccepted && (
+        <LegalDisclaimerModal onAgree={acceptDisclaimer} language={language} />
+      )}
+    </View>
   );
 }
 
@@ -417,5 +464,69 @@ const styles = StyleSheet.create({
     maxWidth: 480,
     alignSelf: 'center',
     backgroundColor: colors.groupedBackground,
+  },
+
+  // 免责声明弹窗（P0 侵权风险阻断）
+  disclaimerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.screen,
+    zIndex: 9999,
+    elevation: 20,
+  },
+  disclaimerCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    padding: 24,
+    maxWidth: 420,
+    width: '100%',
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 24,
+  },
+  disclaimerBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.brandTint,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    marginBottom: 12,
+  },
+  disclaimerBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.brand,
+  },
+  disclaimerTitle: {
+    ...typography.title2,
+    color: colors.label,
+    marginBottom: 12,
+    fontWeight: '700',
+  },
+  disclaimerBody: {
+    ...typography.body,
+    color: colors.secondaryLabel,
+    lineHeight: 22,
+    marginBottom: 20,
+  },
+  disclaimerBtn: {
+    backgroundColor: colors.brand,
+    borderRadius: radius.pill,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  disclaimerBtnPressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.98 }],
+  },
+  disclaimerBtnText: {
+    color: colors.onBrand,
+    fontSize: 16,
+    fontWeight: '700',
   },
 });

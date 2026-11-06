@@ -91,6 +91,10 @@ export const TRANSLATIONS: Record<SupportedLanguage, Record<string, string>> = {
     trust_silver: '银牌可靠',
     trust_gold: '金牌优选',
     trust_crown: '皇冠信赖',
+    // 免责声明 (法务合规 P0)
+    disclaimer_title: '平台独立性与版权免责声明',
+    disclaimer_body: 'IKEAR 为第三方独立二手家具流转工具平台，与宜家 (Inter IKEA Systems B.V.) 无任何隶属、合作或授权关系。平台内展示之型号名称及参考图仅用于型号对照与验真识别（指示性合理使用），严禁商标混淆。继续使用即表示您已知晓并同意本规则。',
+    disclaimer_agree: '我已知晓并同意',
   },
   'zh-TW': {
     nav_discover: '探索',
@@ -135,6 +139,9 @@ export const TRANSLATIONS: Record<SupportedLanguage, Record<string, string>> = {
     trust_silver: '銀牌可靠',
     trust_gold: '金牌優選',
     trust_crown: '皇冠信賴',
+    disclaimer_title: '平台獨立性與版權免責聲明',
+    disclaimer_body: 'IKEAR 為第三方獨立二手家具流轉工具平台，與宜家 (Inter IKEA Systems B.V.) 無任何隸屬、合作或授權關係。平台內展示之型號名稱及參考圖僅用於型號對照與驗真識別（指示性合理使用），嚴禁商標混淆。繼續使用即表示您已知悉並同意本規則。',
+    disclaimer_agree: '我已知悉並同意',
   },
   en: {
     nav_discover: 'Discover',
@@ -179,6 +186,9 @@ export const TRANSLATIONS: Record<SupportedLanguage, Record<string, string>> = {
     trust_silver: 'Silver Trusted',
     trust_gold: 'Gold Verified',
     trust_crown: 'Crown Elite',
+    disclaimer_title: 'Independence & Trademark Disclaimer',
+    disclaimer_body: 'IKEAR is an independent third-party peer-to-peer marketplace tool and is not affiliated with, endorsed by, or sponsored by Inter IKEA Systems B.V. All IKEA product names, models, and reference images are used solely for identification purposes under nominative fair use.',
+    disclaimer_agree: 'I Understand and Agree',
   },
   fr: {
     nav_discover: 'Découvrir',
@@ -223,6 +233,9 @@ export const TRANSLATIONS: Record<SupportedLanguage, Record<string, string>> = {
     trust_silver: 'Argent Vérifié',
     trust_gold: 'Or Recommandé',
     trust_crown: 'Couronne Élite',
+    disclaimer_title: 'Avertissement d’indépendance et de marque',
+    disclaimer_body: 'IKEAR est une plateforme indépendante de seconde main et n’est affiliée, soutenue ou parrainée d’aucune manière par Inter IKEA Systems B.V. Les noms de modèles sont utilisés uniquement à des fins d’identification.',
+    disclaimer_agree: 'J’accepte et je continue',
   },
   es: {
     nav_discover: 'Descubrir',
@@ -267,6 +280,9 @@ export const TRANSLATIONS: Record<SupportedLanguage, Record<string, string>> = {
     trust_silver: 'Plata Confiable',
     trust_gold: 'Oro Verificado',
     trust_crown: 'Corona Élite',
+    disclaimer_title: 'Aviso legal de independencia y marcas',
+    disclaimer_body: 'IKEAR es una plataforma independiente de segunda mano y no está afiliada ni patrocinada por Inter IKEA Systems B.V. Los nombres y referencias se usan exclusivamente con fines identificativos.',
+    disclaimer_agree: 'Entiendo y acepto',
   },
   ja: {
     nav_discover: '見つける',
@@ -311,6 +327,9 @@ export const TRANSLATIONS: Record<SupportedLanguage, Record<string, string>> = {
     trust_silver: 'シルバー信頼',
     trust_gold: 'ゴールド優良',
     trust_crown: 'クラウン最上級',
+    disclaimer_title: '独立性および商標に関する免責事項',
+    disclaimer_body: 'IKEARは独立したC2C中古家具プラットフォームであり、Inter IKEA Systems B.V.とは一切提携・公認・提携関係にありません。製品名や型番は識別のための公正使用目的でのみ表示されます。',
+    disclaimer_agree: '同意して続ける',
   },
   ko: {
     nav_discover: '탐색',
@@ -355,6 +374,9 @@ export const TRANSLATIONS: Record<SupportedLanguage, Record<string, string>> = {
     trust_silver: '실버 안심',
     trust_gold: '골드 우수',
     trust_crown: '크라운 최고신뢰',
+    disclaimer_title: '독립성 및 상표 관련 법적 고지',
+    disclaimer_body: 'IKEAR는 독립적인 C2C 중고 가구 플랫폼이며 Inter IKEA Systems B.V.와 제휴, 후원 또는 공식 승인 관계가 없습니다. 모델명과 이미지는 식별 및 대조 목적으로만 사용됩니다.',
+    disclaimer_agree: '동의하고 계속하기',
   },
   de: {
     nav_discover: 'Entdecken',
@@ -399,6 +421,9 @@ export const TRANSLATIONS: Record<SupportedLanguage, Record<string, string>> = {
     trust_silver: 'Silber Zuverlässig',
     trust_gold: 'Gold Geprüft',
     trust_crown: 'Krone Elite',
+    disclaimer_title: 'Unabhängigkeits- und Markenhinweis',
+    disclaimer_body: 'IKEAR ist eine unabhängige Second-Hand-C2C-Plattform und steht in keiner Verbindung zu Inter IKEA Systems B.V. Produktnamen und Modellbezeichnungen dienen ausschließlich der Identifikation.',
+    disclaimer_agree: 'Verstanden und zustimmen',
   },
   sv: {
     nav_discover: 'Upptäck',
@@ -443,6 +468,9 @@ export const TRANSLATIONS: Record<SupportedLanguage, Record<string, string>> = {
     trust_silver: 'Silver Pålitlig',
     trust_gold: 'Guld Verifierad',
     trust_crown: 'Krona Elit',
+    disclaimer_title: 'Oberoende- och varumärkesfriskrivning',
+    disclaimer_body: 'IKEAR är en oberoende andrahandsplattform för C2C och är varken anknuten till, godkänd av eller sponsrad av Inter IKEA Systems B.V. Produktnamn används endast i identifieringssyfte.',
+    disclaimer_agree: 'Jag förstår och godkänner',
   },
 };
 
